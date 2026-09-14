@@ -7,9 +7,13 @@ option go_package = "github.com/liaisonio/liaison/api/ai/v1";
 // Errors expose error.code and error.request_id, never upstream response bodies.
 // Inference errors distinguish UPSTREAM_AUTHENTICATION_FAILED,
 // UPSTREAM_MODEL_OR_ENDPOINT_NOT_FOUND, UPSTREAM_RATE_LIMITED and UPSTREAM_TIMEOUT.
+// POST /api/v1/ai/accesses/{id}/v1/messages accepts native Anthropic Messages
+// only for Anthropic upstreams. Authenticate with a Liaison x-api-key or Bearer
+// key (never both). No client beta headers or upstream credentials are forwarded.
+// Uses the same key ownership, model allowlist, quota and revocation checks.
 // GET/PUT /api/v1/ai/applications/{id}; POST .../{id}/probe
 message ApplicationConfig {
-  string protocol = 1; // openai-compatible or anthropic
+  string protocol = 1; // openai-compatible, anthropic or ollama (native /api/chat)
   string base_path = 2;
   bool tls = 3;
   string api_key = 4; // Write-only; empty preserves. Bound to target fingerprint.
@@ -28,6 +32,7 @@ message AccessWorkspace {
   bool enabled = 2;
   repeated string models = 3;
   bool can_manage = 4;
+  repeated string external_protocols = 5; // Consumer-safe capabilities; includes anthropic only for native Anthropic upstreams.
 }
 // GET/POST /api/v1/ai/accesses/{id}/keys; DELETE .../keys/{key_id}
 message KeyRequest {

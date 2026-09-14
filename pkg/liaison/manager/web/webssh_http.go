@@ -22,6 +22,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/jumboframes/armorigo/log"
 	"github.com/liaisonio/liaison/pkg/liaison/manager/controlplane"
+	"github.com/liaisonio/liaison/pkg/liaison/repo/model"
 	"golang.org/x/crypto/ssh"
 	"gorm.io/gorm"
 )
@@ -276,6 +277,10 @@ func (web *web) handleCreateWebSSHSessionHTTP(w http.ResponseWriter, r *http.Req
 		writeJSON(w, http.StatusConflict, map[string]any{"code": http.StatusConflict, "message": target.EffectiveStatusMessage})
 		return
 	}
+	if target.AccessProtocol == model.AccessProtocolWebSFTP {
+		writeJSON(w, http.StatusForbidden, map[string]any{"code": http.StatusForbidden, "message": "WebSFTP does not allow terminal sessions"})
+		return
+	}
 	password := []byte(req.Password)
 	savedCredential := false
 	if len(password) == 0 {
@@ -337,8 +342,8 @@ func validateWebSSHSessionCredentials(req createWebSSHSessionRequest) error {
 }
 
 func (web *web) handleWebSSHCredentialHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet && r.Method != http.MethodDelete {
-		w.Header().Set("Allow", "GET, DELETE")
+	if r.Method != http.MethodGet && r.Method != http.MethodDelete && r.Method != http.MethodPost && r.Method != http.MethodPut {
+		w.Header().Set("Allow", "GET, DELETE, POST, PUT")
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"code": http.StatusMethodNotAllowed, "message": "method not allowed"})
 		return
 	}
@@ -353,6 +358,10 @@ func (web *web) handleWebSSHCredentialHTTP(w http.ResponseWriter, r *http.Reques
 		return
 	}
 	ctx := context.WithValue(r.Context(), "user_id", user.ID)
+	if r.Method == http.MethodPost || r.Method == http.MethodPut {
+		web.saveWebSFTPConnectionHTTP(w, r, ctx, proxyID)
+		return
+	}
 	if r.Method == http.MethodDelete {
 		target, targetErr := web.controlPlane.GetWebSSHTarget(ctx, proxyID)
 		if targetErr != nil {
@@ -452,12 +461,19 @@ func (web *web) runWebSSH(ctx context.Context, writer *webSSHWSWriter, wsConn *w
 		return
 	}
 	defer targetConn.Close()
+	if target.AccessProtocol == model.AccessProtocolWebSFTP {
+		// Recheck after opening the stream in case the access type changed.
+		if err := writer.write(webSSHServerMessage{Type: "error", Message: "WebSFTP does not allow terminal sessions"}); err != nil {
+			log.Debugf("websftp terminal rejection delivery failed: %v", err)
+		}
+		return
+	}
 
 	password := string(webSession.password)
 	sshConfig := &ssh.ClientConfig{
 		User:            webSession.username,
 		Auth:            []ssh.AuthMethod{ssh.Password(password)},
-		HostKeyCallback: web.webSSHHostKeyCallback(webSession.proxyID),
+		HostKeyCallback: web.webSSHHostKeyCallback(context.WithValue(ctx, "user_id", webSession.userID), webSession.proxyID),
 		Timeout:         10 * time.Second,
 	}
 	targetAddr := net.JoinHostPort(target.TargetHost, strconv.Itoa(target.TargetPort))
@@ -720,13 +736,17 @@ func (web *web) recordWebSSHAudit(target *controlplane.WebSSHTarget, userID uint
 	if statement == "" {
 		statement = webSSHAuditStatement(action, username)
 	}
+	protocol := "webssh"
+	if target.AccessProtocol == model.AccessProtocolWebSFTP {
+		protocol = "websftp"
+	}
 	if err := web.controlPlane.RecordWebDataAudit(context.Background(), &controlplane.WebDataAudit{
 		UserID:           userID,
 		ProxyID:          target.ProxyID,
 		ProxyName:        target.ProxyName,
 		ApplicationID:    target.ApplicationID,
 		ApplicationName:  target.ApplicationName,
-		Protocol:         "webssh",
+		Protocol:         protocol,
 		Action:           action,
 		Database:         username,
 		StatementPreview: webDataStatementPreview(statement),
@@ -915,10 +935,10 @@ func (web *web) copyWebSSHOutput(writer *webSSHWSWriter, reader io.Reader, done 
 	}
 }
 
-func (web *web) webSSHHostKeyCallback(proxyID uint) ssh.HostKeyCallback {
+func (web *web) webSSHHostKeyCallback(ctx context.Context, proxyID uint) ssh.HostKeyCallback {
 	return func(_ string, _ net.Addr, key ssh.PublicKey) error {
 		fingerprint := ssh.FingerprintSHA256(key)
-		target, err := web.controlPlane.GetWebSSHTarget(context.Background(), proxyID)
+		target, err := web.controlPlane.GetWebSSHTarget(ctx, proxyID)
 		if err != nil {
 			return err
 		}
@@ -929,7 +949,7 @@ func (web *web) webSSHHostKeyCallback(proxyID uint) ssh.HostKeyCallback {
 			return nil
 		}
 		publicKey := base64.StdEncoding.EncodeToString(key.Marshal())
-		return web.controlPlane.TrustWebSSHHostKey(context.Background(), proxyID, key.Type(), fingerprint, publicKey)
+		return web.controlPlane.TrustWebSSHHostKey(ctx, proxyID, key.Type(), fingerprint, publicKey)
 	}
 }
 

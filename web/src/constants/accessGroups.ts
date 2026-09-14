@@ -1,0 +1,25 @@
+import {ACCESS_TYPES} from './accessTypes';
+
+// Business categories, not transport layers. Only implemented access types belong here.
+export const ACCESS_GROUPS = [
+  {value:'web',label:'Web',types:['http']},
+  {value:'database',label:'Database',types:['webmysql','webmariadb','webpostgresql','websqlserver','weboracle','webmongodb','webclickhouse','webelasticsearch','webopensearch']},
+  {value:'cache',label:'Cache',types:['webredis','webmemcached']},
+  {value:'storage',label:'Storage',types:['webs3']},
+  {value:'desktop',label:'Desktop',types:['webrdp','webvnc']},
+  {value:'llm',label:'LLM',types:['aiapi']},
+  {value:'tcp',label:'TCP',types:['tcp']},
+  {value:'ssh',label:'SSH/SFTP',types:['webssh','websftp','ssh']},
+];
+export function accessGroup(search:URLSearchParams) {
+  // Preserve bookmarks made before Redis moved from Database to Cache.
+  if(search.get('category')==='database' && search.get('access_type')==='webredis') {
+    return ACCESS_GROUPS.find(group=>group.value==='cache');
+  }
+  const requested=ACCESS_GROUPS.find(group=>group.value===search.get('category'));
+  return requested || ACCESS_GROUPS.find(group=>group.types.includes(search.get('access_type')||''));
+}
+export function groupTypes(group:typeof ACCESS_GROUPS[number]) {
+  return group.types.flatMap(type=>ACCESS_TYPES.filter(item=>item.value===type));
+}
+export function accessTabLabel(label:string){return label.startsWith('Web ')?label.replace('Web ','Web'):label;}

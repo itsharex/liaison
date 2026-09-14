@@ -134,7 +134,7 @@ func (cp *controlPlane) SaveWebDesktopCredential(ctx context.Context, proxyID ui
 		return err
 	}
 	protocol, username, domain = normalizeWebDesktopCredentialIdentity(protocol, username, domain)
-	if !isWebDesktopProtocol(protocol) || strings.TrimSpace(encryptedPassword) == "" || strings.TrimSpace(nonce) == "" {
+	if !isWebDesktopProtocol(protocol) || ((encryptedPassword == "") != (nonce == "")) {
 		return errors.New("WebDesktop 凭据信息不能为空")
 	}
 	return cp.repo.UpsertWebDesktopCredential(&model.WebDesktopCredential{
@@ -228,7 +228,7 @@ func (cp *controlPlane) loadWebDesktopCredentials(proxyID, userID uint, protocol
 	for _, item := range saved {
 		credential := &WebDesktopCredential{
 			ID:       item.ID,
-			Saved:    true,
+			Saved:    item.EncryptedPassword != "" && item.Nonce != "",
 			Protocol: item.Protocol,
 			Username: item.Username,
 			Domain:   item.Domain,

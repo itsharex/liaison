@@ -469,7 +469,7 @@ button {
 .liaison-related-accesses { display: flex; min-width: 0; flex-wrap: wrap; gap: 4px; white-space: normal; }
 .liaison-related-access { display: inline-flex; max-width: 150px; min-height: 21px; align-items: center; overflow: hidden; border: 1px solid rgb(var(--accent) / 0.2); border-radius: 7px; padding: 0 6px; background: rgb(var(--accent) / 0.07); color: rgb(var(--ink) / 0.82); font-size: 9px; font-weight: 580; text-overflow: ellipsis; white-space: nowrap; }
 .liaison-related-access small { margin-left: 6px; color: rgb(var(--muted)); font-size: 9px; font-weight: 600; }
-.liaison-table-link { border: 0; padding: 0; background: transparent; color: rgb(var(--info)); font-size: 11px; cursor: pointer; }
+.liaison-table-link { border: 0; padding: 0; background: transparent; color: rgb(var(--info)); font-size: 11px; cursor: pointer; text-decoration: none; }
 .liaison-table-link.is-danger { color: rgb(var(--danger)); }
 .liaison-connect-command { display: inline-flex; min-height: 26px; align-items: center; gap: 5px; border: 1px solid rgb(var(--line)); border-radius: 7px; padding: 0 8px; background: rgb(var(--surface)); color: rgb(var(--ink)); font-size: 10px; font-weight: 620; cursor: pointer; }
 .liaison-connect-command:hover { border-color: rgb(var(--ink) / 0.42); background: rgb(var(--panel)); }
@@ -587,11 +587,12 @@ button {
 .liaison-firewall-empty.is-deny { color: rgb(var(--danger)); }
 .liaison-firewall-empty.is-deny strong { color: rgb(var(--danger)); }
 .liaison-drawer-actions { display: flex; justify-content: flex-end; gap: 8px; margin-top: 20px; padding-top: 4px; }
-.liaison-switch { position: relative; display: inline-flex; width: 52px; height: 26px; flex: 0 0 52px; align-items: center; justify-content: center; border: 0; border-radius: 999px; padding: 0 5px 0 25px; background: rgb(var(--line)); color: rgb(var(--muted)); font-size: 10px; cursor: pointer; transition: background-color 160ms ease, color 160ms ease; }
-.liaison-switch i { position: absolute; left: 4px; width: 18px; height: 18px; border-radius: 50%; background: rgb(var(--surface)); box-shadow: 0 1px 2px rgb(15 23 42 / 0.16); transition: transform 160ms ease; }
+.liaison-switch { position: relative; display: inline-flex; width: 36px; height: 20px; flex: 0 0 36px; align-items: center; justify-content: center; border: 0; border-radius: 999px; padding: 0; background: rgb(var(--muted) / 0.35); box-shadow: inset 0 0 0 1px rgb(var(--muted) / 0.4); color: rgb(var(--muted)); font-size: 10px; cursor: pointer; transition: background-color 160ms ease, color 160ms ease; }
+.liaison-switch i { position: absolute; left: 3px; width: 14px; height: 14px; border-radius: 50%; background: rgb(var(--accent-ink)); box-shadow: 0 1px 2px rgb(15 23 42 / 0.16); transition: transform 160ms ease; }
 .liaison-switch span { line-height: 1; white-space: nowrap; }
-.liaison-switch.is-on { padding: 0 25px 0 5px; background: rgb(var(--accent) / 0.18); color: rgb(var(--accent)); }
-.liaison-switch.is-on i { transform: translateX(26px); }
+.liaison-switch.is-on { background: rgb(var(--accent)); color: rgb(var(--accent-ink)); box-shadow: none; }
+.liaison-switch.is-on i { transform: translateX(16px); }
+.liaison-switch:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 3px; }
 .liaison-switch:disabled { cursor: wait; opacity: 0.72; }
 .liaison-install-loading { display: grid; min-height: 180px; place-items: center; align-content: center; gap: 8px; text-align: center; }
 .liaison-install-loading .ui-spinner { width: 22px; height: 22px; margin-bottom: 6px; }
@@ -790,6 +791,12 @@ button {
 }
 
 .liaison-header-language-button:hover { color: rgb(var(--accent)); }
+.liaison-header-language-button { font: inherit; font-size: 12px; gap: 8px; white-space: nowrap; }
+.liaison-header-language-button:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 2px; border-radius: var(--control-radius); }
+.liaison-login-language { position: absolute; top: 16px; right: 20px; z-index: 10; }
+.liaison-app-frame.is-home .liaison-global-actions { position: fixed; top: 10px; right: 20px; pointer-events: auto; }
+.liaison-language-menu button { justify-content: space-between; gap: 8px; }
+.liaison-language-menu button[aria-pressed="true"] { color: rgb(var(--accent)); }
 .liaison-header-language-button .is-open { transform: rotate(180deg); }
 .liaison-header-language-button > svg:last-child { transition: transform 150ms ease; }
 

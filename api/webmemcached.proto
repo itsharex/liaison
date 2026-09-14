@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package liaison.webmemcached;
+option go_package = "github.com/liaisonio/liaison/api/webmemcached;webmemcached";
+
+// Supplemental contract for JSON statements sent through the existing
+// authenticated WebData session execute endpoint. Target, user and credentials
+// come from the session, never from this command. This is basic-text Memcached,
+// not SASL/binary-protocol authentication.
+message Command {
+  // stats | get | set | delete. No raw protocol or flush_all support.
+  string operation = 1;
+  string key = 2;
+  // Base64-encoded bytes in JSON, preserving binary cache values.
+  bytes value = 3;
+  uint32 flags = 4;
+  // Relative expiry only: 0..2592000 seconds.
+  uint32 ttl_seconds = 5;
+}

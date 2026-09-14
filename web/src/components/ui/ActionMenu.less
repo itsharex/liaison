@@ -1,0 +1,59 @@
+.liaison-action-menu-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  border: 1px solid transparent;
+  border-radius: var(--control-radius);
+  color: rgb(var(--muted));
+  background: transparent;
+  cursor: pointer;
+}
+.liaison-action-menu-trigger:hover,
+.liaison-action-menu-trigger[aria-expanded='true'] {
+  background: rgb(var(--panel));
+  color: rgb(var(--ink));
+  border-color: rgb(var(--line));
+}
+.liaison-action-menu {
+  position: fixed;
+  z-index: 1200;
+  min-width: 176px;
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  padding: 4px;
+  background: rgb(var(--surface));
+  border: 1px solid rgb(var(--line));
+  border-radius: var(--control-radius);
+  box-shadow: 0 8px 24px rgb(0 0 0/0.18);
+}
+.liaison-action-menu button {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-radius: var(--control-radius);
+  padding: 9px 12px;
+  text-align: left;
+  background: transparent;
+  color: rgb(var(--ink));
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+.liaison-action-menu button:hover,
+.liaison-action-menu button:focus-visible {
+  background: rgb(var(--accent) / 0.12);
+}
+.liaison-action-menu button.is-danger {
+  color: rgb(var(--danger));
+}
+.liaison-action-menu button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+.liaison-action-menu-trigger:focus-visible,
+.liaison-action-menu button:focus-visible {
+  outline: 2px solid rgb(var(--accent));
+  outline-offset: 2px;
+}

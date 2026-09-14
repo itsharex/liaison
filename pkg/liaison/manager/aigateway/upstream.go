@@ -93,7 +93,11 @@ func (u *Upstream) Request(ctx context.Context, method, operation, upstreamKey s
 }
 
 func (u *Upstream) RequestProtocol(ctx context.Context, method, operation, upstreamKey, protocol string, body io.Reader) (*http.Response, error) {
+	if protocol == "ollama" && method == http.MethodGet && operation == "models" {
+		operation = "tags"
+	}
 	if !(method == http.MethodGet && operation == "models" ||
+		protocol == "ollama" && (method == http.MethodGet && operation == "tags" || method == http.MethodPost && operation == "chat") ||
 		method == http.MethodPost && (protocol == "openai-compatible" && operation == "chat/completions" || protocol == "anthropic" && operation == "messages")) {
 		return nil, errors.New("unsupported AI API operation")
 	}
@@ -110,7 +114,7 @@ func (u *Upstream) RequestProtocol(ctx context.Context, method, operation, upstr
 		if upstreamKey != "" {
 			req.Header.Set("x-api-key", upstreamKey)
 		}
-	} else if protocol != "openai-compatible" {
+	} else if protocol != "openai-compatible" && protocol != "ollama" {
 		return nil, errors.New("unsupported upstream protocol")
 	} else if upstreamKey != "" {
 		req.Header.Set("Authorization", "Bearer "+upstreamKey)
@@ -156,6 +160,28 @@ func (u *Upstream) Probe(ctx context.Context, key, protocol string) ProbeResult 
 			ID   string `json:"id"`
 			Type string `json:"type"`
 		} `json:"data"`
+	}
+	if protocol == "ollama" {
+		var tags struct {
+			Models *[]struct {
+				Name string `json:"name"`
+			} `json:"models"`
+		}
+		if json.Unmarshal(data, &tags) != nil || tags.Models == nil {
+			return ProbeResult{State: "unknown"}
+		}
+		models := []string{}
+		seen := map[string]bool{}
+		for _, m := range *tags.Models {
+			if !validModel(m.Name) {
+				return ProbeResult{State: "unknown"}
+			}
+			if !seen[m.Name] {
+				models = append(models, m.Name)
+				seen[m.Name] = true
+			}
+		}
+		return ProbeResult{State: "compatible", Protocol: protocol, Models: models}
 	}
 	if json.Unmarshal(data, &result) != nil || (protocol == "openai-compatible" && result.Object != "list") || result.Data == nil {
 		return ProbeResult{State: "unknown"}

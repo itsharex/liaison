@@ -10,7 +10,7 @@ type Policy = {catalog:Array<{code:string;name:string}>;enabled:string[]};
 type PermissionNode = {label:[string,string];code?:string;children?:PermissionNode[];note?:[string,string]};
 const modules:PermissionNode[] = [
  {label:['首页','Home'],children:[{label:['Agent','Agent'],code:'ai.home.use'}]},
- {label:['访问','Access'],children:[{label:['Agent','Agent'],code:'ai.access.use'}],note:['适用于各协议访问页面中的 Agent','Applies to Agent in all protocol workspaces']},
+ {label:['访问','Access'],children:[{label:['Agent','Agent'],code:'ai.access.use'},{label:['WebSSH / WebSFTP','WebSSH / WebSFTP'],children:[{label:['文件浏览','Browse files'],code:'webssh.files.read'},{label:['文件上传','Upload files'],code:'webssh.files.upload'}]}]},
  {label:['日志与审计','Logs & Audit'],children:[{label:['管理日志','Management logs'],code:'audit.read'},{label:['审计日志','Audit logs'],code:'audit.read'}],note:['管理日志与审计日志共用权限，勾选时同步生效','Both log pages share one permission and are selected together']},
  {label:['设置','Settings'],children:[{label:['模型配置','Models'],children:[{label:['查看','View'],code:'settings.global.read'},{label:['修改','Edit'],code:'settings.global.update'}]}]},
 ];
@@ -29,6 +29,8 @@ export default function Permissions() {
   codes.filter(code=>p.catalog.some(f=>f.code===code)).forEach(code=>on?next.add(code):next.delete(code));
   if(codes.includes('settings.global.update')&&on)next.add('settings.global.read');
   if(codes.includes('settings.global.read')&&!on)next.delete('settings.global.update');
+  if(codes.includes('webssh.files.upload')&&on)next.add('webssh.files.read');
+  if(codes.includes('webssh.files.read')&&!on)next.delete('webssh.files.upload');
   return {...p,enabled:[...next]};
  });};
  const save=async()=>{if(!policy)return;setBusy(true);setNotice('');try{

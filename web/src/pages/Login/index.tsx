@@ -1,4 +1,5 @@
 import { LiaisonLogo } from '@/components/LiaisonLogo';
+import { HeaderQuickSettings } from '@/components/layout/HeaderQuickSettings';
 import { GITHUB_URL } from '@/constants';
 import { useI18n } from '@/i18n';
 import { history } from '@/lib/runtime';
@@ -57,6 +58,7 @@ const Login: React.FC = () => {
 
   return (
     <main className="login-shell">
+      <div className="liaison-login-language"><HeaderQuickSettings languageOnly /></div>
       <section className="login-brand-panel">
         <LiaisonLogo size={440} className="login-brand-watermark" decorative />
         <div className="login-brand-topline">

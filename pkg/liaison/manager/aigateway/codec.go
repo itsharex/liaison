@@ -75,6 +75,9 @@ func Prepare(raw []byte, allowed map[string]string, protocol string) (Prepared, 
 		return p, err
 	}
 	obj["model"] = encoded
+	if protocol == "ollama" {
+		return prepareOllama(p, obj)
+	}
 	p.Operation = "chat/completions"
 	if protocol == "anthropic" {
 		// Intentionally text-only conversion. No silent dropping of tools, images,
@@ -193,6 +196,9 @@ func finishReason(reason string) (string, error) {
 	}
 }
 func RewriteJSON(raw []byte, protocol, alias string, u *Usage) ([]byte, error) {
+	if protocol == "ollama" {
+		return rewriteOllamaJSON(raw, alias, u)
+	}
 	obj, err := responseObject(raw)
 	if err != nil {
 		return nil, err
@@ -246,6 +252,9 @@ func RewriteJSON(raw []byte, protocol, alias string, u *Usage) ([]byte, error) {
 // Frames are bounded, dispatched on blank lines, and emitted immediately. An
 // interrupted stream never gains a synthetic successful [DONE].
 func RelaySSE(reader io.Reader, protocol, alias string, emit func([]byte) error, u *Usage) error {
+	if protocol == "ollama" {
+		return relayOllama(reader, alias, emit, u)
+	}
 	scanner := bufio.NewScanner(reader)
 	scanner.Buffer(make([]byte, 4096), 1<<20)
 	var frame bytes.Buffer

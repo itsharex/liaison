@@ -48,6 +48,26 @@ func TestBoundedOutput_TruncatesWithoutShortWrite(t *testing.T) {
 	assert.True(t, output.Truncated())
 }
 
+func TestRegisterMemcachedAgentSession_IsolatesAndCloses(t *testing.T) {
+	registry := accesssession.NewRegistry()
+	server := &web{accessSessions: registry}
+	session := &webDataSession{token: "cache-session", userID: 7, proxyID: 11, protocol: "memcached", target: &controlplane.WebDataTarget{ApplicationID: 13}}
+	require.NoError(t, server.registerWebDataAgentSession(session))
+	t.Cleanup(session.close)
+	query := accesssession.ResolveRequest{ID: session.token, UserID: 7, AccessID: 11, ApplicationID: 13, Protocol: "memcached", Generation: session.agentGeneration}
+	handle, err := registry.Resolve(context.Background(), query)
+	require.NoError(t, err)
+	require.NotNil(t, handle.Data)
+	require.Nil(t, handle.Terminal)
+	query.UserID = 8
+	_, err = registry.Resolve(context.Background(), query)
+	require.Error(t, err)
+	query.UserID = 7
+	session.close()
+	_, err = registry.Resolve(context.Background(), query)
+	require.Error(t, err)
+}
+
 func TestWebSSHAgentHandle_ReadReturnsRecentLines(t *testing.T) {
 	handle := &webSSHAgentHandle{}
 	handle.observe(strings.Join([]string{"one", "two", "three"}, "\n"))

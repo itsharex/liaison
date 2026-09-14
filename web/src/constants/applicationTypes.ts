@@ -14,6 +14,8 @@ export const APPLICATION_TYPES = [
   { value: 'opensearch', label: 'OpenSearch' },
   { value: 'postgresql', label: 'PostgreSQL' },
   { value: 'redis', label: 'Redis' },
+  { value: 'memcached', label: 'Memcached' },
+  { value: 's3', label: 'S3' },
   { value: 'mongodb', label: 'MongoDB' },
 ] as const;
 

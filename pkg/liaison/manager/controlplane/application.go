@@ -25,6 +25,7 @@ func getDefaultPortByApplicationType(appType string) int {
 		"clickhouse":    9000,
 		"elasticsearch": 9200,
 		"opensearch":    9200,
+		"memcached":     11211,
 		"postgresql":    5432,
 		"redis":         6379,
 		"mongodb":       27017,
@@ -419,7 +420,7 @@ func (cp *controlPlane) DeleteApplication(ctx context.Context, req *v1.DeleteApp
 
 func isAllowedApplicationType(appType string) bool {
 	switch appType {
-	case "llm", "http", "tcp", "ssh", "rdp", "vnc", "mysql", "mariadb", "sqlserver", "oracle", "clickhouse", "elasticsearch", "opensearch", "postgresql", "redis", "mongodb", "database":
+	case "llm", "http", "tcp", "ssh", "rdp", "vnc", "mysql", "mariadb", "sqlserver", "oracle", "clickhouse", "elasticsearch", "opensearch", "postgresql", "redis", "memcached", "mongodb", "database", "s3":
 		return true
 	default:
 		return false

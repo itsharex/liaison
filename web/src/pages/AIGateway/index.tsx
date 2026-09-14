@@ -1,12 +1,15 @@
 import { request } from '@/api/client';
+import AccessContext from '@/components/AccessContext';
+import LLMProtocol from '@/components/icons/LLMProtocol';
 import { MessageContent } from '@/components/AgentWorkspace/MessageContent';
 import { Button, DangerConfirm, Field, Input, Modal, Notice, Select } from '@/components/ui';
 import { useI18n } from '@/i18n';
 import { getToken } from '@/store/session';
 import { ArrowLeft, Copy, Plus, Trash2 } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import './index.less';
+import RequestExample from './RequestExample';
 
 type AppConfig = {
   protocol: string;
@@ -21,7 +24,7 @@ type AccessConfig = {
   models: Record<string, string>;
   external_protocol: string;
 };
-type Workspace = { name: string; enabled: boolean; models: string[]; can_manage: boolean };
+type Workspace = { name: string; enabled: boolean; models: string[]; can_manage: boolean; external_protocol: string; external_protocols?:string[] };
 type WorkspaceTab = 'overview' | 'playground' | 'keys' | 'requests' | 'configuration';
 class GatewayError extends Error {}
 type Key = {
@@ -54,7 +57,10 @@ export default function AIGateway() {
   const [config, setConfig] = useState<AppConfig>();
   const [access, setAccess] = useState<AccessConfig>();
   const [workspace, setWorkspace] = useState<Workspace>();
-  const [tab, setTab] = useState<WorkspaceTab>('overview');
+  const [entrySearch] = useSearchParams();
+  const entryTab:WorkspaceTab=entrySearch.get('tab')==='playground'?'playground':entrySearch.get('tab')==='configuration'?'configuration':'overview';
+  const [tab, setTab] = useState<WorkspaceTab>(entryTab);
+  useEffect(() => { setTab(entryTab); }, [entryTab]);
   const [mapping, setMapping] = useState<[string, string][]>([]);
   const [keys, setKeys] = useState<Key[]>([]);
   const [records, setRecords] = useState<RecordItem[]>([]);
@@ -83,8 +89,14 @@ export default function AIGateway() {
   const [model, setModel] = useState('');
   const [prompt, setPrompt] = useState('');
   const [answer, setAnswer] = useState('');
-  const [history, setHistory] = useState<{role: 'user' | 'assistant'; content: string}[]>([]);
+  const [history, setHistory] = useState<{role: 'user' | 'assistant'; content: string; model?:string}[]>([]);
+  const [pendingPrompt,setPendingPrompt]=useState('');
   const [requestId, setRequestId] = useState('');
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const followMessages = useRef(true);
+  useEffect(() => {
+    if (followMessages.current && messagesRef.current) messagesRef.current.scrollTop = messagesRef.current.scrollHeight;
+  }, [history, pendingPrompt, answer]);
   const generation = useRef(0);
   const abort = useRef<AbortController>();
   const base = `/api/v1/ai/accesses/${proxyId}`;
@@ -124,7 +136,7 @@ export default function AIGateway() {
     setConfig(undefined);
     setAccess(undefined);
     setWorkspace(undefined);
-    setTab('overview');
+    setTab(entryTab);
     setNotice(undefined);
     setSecret('');
     setCreateOpen(false);
@@ -132,6 +144,7 @@ export default function AIGateway() {
     setRevokeTarget(undefined);
     setQuotaTarget(undefined);
     setHistory([]);
+    setPendingPrompt('');
     setAnswer('');
     setRequestId('');
     setAppId(applicationId || '');
@@ -195,10 +208,12 @@ export default function AIGateway() {
     return c;
   };
   const runTest = async () => {
+    followMessages.current = true;
     const current = generation.current;
     setAnswer('');
     setRequestId('');
     const messages = [...history, {role: 'user' as const, content: prompt}];
+    setPendingPrompt(prompt);
     let output = '';
     const controller = new AbortController();
     abort.current = controller;
@@ -211,7 +226,7 @@ export default function AIGateway() {
         },
         body: JSON.stringify({
           model,
-          messages,
+          messages:messages.map(({role,content})=>({role,content})),
           max_tokens: 1024,
           stream: true,
         }),
@@ -256,7 +271,8 @@ export default function AIGateway() {
         }
       }
       if (!done) throw new Error();
-      setHistory([...messages, {role: 'assistant', content: output}]);
+      setHistory([...messages, {role: 'assistant', content: output,model}]);
+      setPendingPrompt('');
       setAnswer('');
       setPrompt('');
     } catch (e) {
@@ -294,14 +310,13 @@ export default function AIGateway() {
           <ArrowLeft size={18} />
           {tr('返回', 'Back')}
         </Link>}
-        {proxyId && <nav className="ai-api-breadcrumb" aria-label={tr('页面层级', 'Breadcrumb')}><span>{tr('访问', 'Access')}</span><i>/</i><span>{tr('LLM 协议', 'LLM protocol')}</span><i>/</i><span>{name}</span></nav>}
-        <h1>{name}</h1>
+        {proxyId ? <AccessContext name={name} protocol={<span className="liaison-inline-name"><LLMProtocol protocol={workspace?.external_protocol}/>{workspace?.external_protocols?.includes('anthropic')&&<LLMProtocol protocol="anthropic"/>}</span>}/> : <><h1>{name}</h1>
         <p>
           {tr(
             '通过连接器安全调用内网模型。',
             'Access internal models securely through a connector.',
           )}
-        </p>
+        </p></>}
       </header>
       {notice && <Notice tone={notice.tone}>{notice.text}</Notice>}
       {!config && !workspace && !notice && <p role="status">{tr('正在加载…', 'Loading…')}</p>}
@@ -319,11 +334,12 @@ export default function AIGateway() {
               <Select
                 value={config.protocol}
                 onChange={(e) =>
-                  setConfig({ ...config, protocol: e.target.value })
+                  setConfig({ ...config, protocol: e.target.value, base_path: ['', '/v1', '/api'].includes(config.base_path) ? (e.target.value === 'ollama' ? '/api' : '/v1') : config.base_path })
                 }
               >
                 <option value="openai-compatible">OpenAI-compatible</option>
                 <option value="anthropic">Anthropic Messages</option>
+                <option value="ollama">Ollama</option>
               </Select>
             </Field>
             <Field label={tr('API 路径', 'API base path')}>
@@ -332,7 +348,7 @@ export default function AIGateway() {
                 onChange={(e) =>
                   setConfig({ ...config, base_path: e.target.value })
                 }
-                placeholder="/v1"
+                placeholder={config.protocol === 'ollama' ? '/api' : '/v1'}
               />
             </Field>
             <Field label={tr('传输加密', 'Transport encryption')}>
@@ -426,7 +442,7 @@ export default function AIGateway() {
       )}
       {workspace && (
         <>
-          <nav className="ai-api-tabs" aria-label={tr('LLM 协议工作区', 'LLM protocol workspace')}>
+          <nav className="ai-api-tabs" aria-label={tr('模型访问工作区', 'Model access workspace')}>
             {([
               ['overview', tr('概览', 'Overview')],
               ['playground', tr('在线体验', 'Playground')],
@@ -445,7 +461,7 @@ export default function AIGateway() {
             <h2>{tr('调用示例', 'Request example')}</h2>
             <p>{tr('LIAISON_API_KEY 使用本页「API 密钥」中创建的 Liaison 调用密钥，不是上游模型密钥。外部调用始终需要认证，请勿将密钥放入前端代码。', 'Set LIAISON_API_KEY to a Liaison key created under API keys, not an upstream model key. External requests always require authentication. Never embed keys in frontend code.')}</p>
             {!keys.length && <p role="status">{tr('你尚未创建调用密钥。请先在「API 密钥」中创建，否则外部调用将返回 401。在线体验使用当前登录身份，无需先创建密钥。', 'You have not created an API key. Create one under API keys before calling externally, otherwise requests return 401. The playground uses your signed-in identity and needs no separate key.')}</p>}
-            <pre className="ai-api-example">{`curl '${window.location.origin}${base}/v1/chat/completions' \\\n  -H "Authorization: Bearer $LIAISON_API_KEY" \\\n  -H 'Content-Type: application/json' \\\n  -d '${JSON.stringify({model: workspace.models[0] || 'MODEL_ALIAS', messages: [{role: 'user', content: 'Hello'}], stream: true})}'`}</pre>
+            <RequestExample base={base} model={workspace.models[0] || 'MODEL_ALIAS'} protocols={workspace.external_protocols}/>
             <footer><Button onClick={() => setTab('keys')}>{tr('管理密钥', 'Manage keys')}</Button><Button variant="primary" onClick={() => setTab('playground')}>{tr('在线体验', 'Open playground')}</Button></footer>
           </section>}
           {tab === 'configuration' && access && workspace.can_manage && <section className="ai-api-card">
@@ -592,7 +608,7 @@ export default function AIGateway() {
             <DangerConfirm title={tr('确认撤销密钥', 'Revoke key') + '「' + (revokeTarget?.name || '') + '」？'} description={tr('使用此密钥的客户端将立即失效，此操作无法撤销。', 'Clients using this key will lose access immediately. This cannot be undone.')} />
             {notice?.tone === 'danger' && <Notice tone="danger">{notice.text}</Notice>}
           </Modal>
-          {tab === 'playground' && <section className="ai-api-card">
+          {tab === 'playground' && <section className="ai-api-card ai-playground">
             <h2>{tr('在线体验', 'Playground')}</h2>
             <p>
               {tr(
@@ -600,25 +616,33 @@ export default function AIGateway() {
                 'Runs real inference with your permissions and may incur upstream costs.',
               )}
             </p>
-            {history.map((message, i) => <div className="ai-api-answer" key={i}><small>{message.role === 'user' ? tr('你', 'You') : model}</small><MessageContent text={message.content} /></div>)}
-            <Field label={tr('模型', 'Model')}>
-              <Select value={model} onChange={(e) => setModel(e.target.value)}>
+            <div className="ai-playground-messages" ref={messagesRef} onScroll={e=>{const el=e.currentTarget;followMessages.current=el.scrollHeight-el.scrollTop-el.clientHeight<48;}} role="log" aria-label={tr('对话','Conversation')}>
+            {!history.length&&!pendingPrompt&&<div className="ai-playground-empty">{tr('选择模型，开始对话','Choose a model and start a conversation')}</div>}
+            {history.map((message, i) => <div className={`ai-api-answer${message.role==='user'?' is-user':''}`} key={i}><small>{message.role === 'user' ? tr('你', 'You') : message.model||tr('模型','Model')}</small><MessageContent text={message.content} /></div>)}
+            {pendingPrompt&&<div className="ai-api-answer is-user"><small>{tr('你','You')}</small><MessageContent text={pendingPrompt}/></div>}
+            {(answer||busy==='test')&&<div className="ai-api-answer"><small>{model}</small>{answer?<MessageContent text={answer}/>:<span role="status">{tr('正在回复…','Responding…')}</span>}</div>}
+            </div>
+            <div className="ai-playground-composer">
+              <textarea
+                className="liaison-input"
+                aria-label={tr('消息','Message')}
+                placeholder={tr('输入消息…','Write a message…')}
+                rows={3}
+                value={prompt}
+                disabled={!!busy}
+                onChange={(e) => setPrompt(e.target.value)}
+                onKeyDown={e=>{if(e.key==='Enter'&&!e.shiftKey&&!e.nativeEvent.isComposing){e.preventDefault();if(!busy&&workspace.enabled&&model&&prompt.trim())void act('test',runTest);}}}
+              />
+            <div className="ai-playground-controls">
+              <Select aria-label={tr('模型','Model')} disabled={!!busy} value={model} onChange={(e) => setModel(e.target.value)}>
                 <option value="">{tr('选择模型', 'Select model')}</option>
                 {workspace.models.map((m) => (
                   <option key={m}>{m}</option>
                 ))}
               </Select>
-            </Field>
-            <Field label={tr('消息', 'Message')}>
-              <textarea
-                className="liaison-input"
-                rows={3}
-                value={prompt}
-                onChange={(e) => setPrompt(e.target.value)}
-              />
-            </Field>
-            <footer>
-              <Button disabled={!!busy || !history.length} onClick={() => { setHistory([]); setAnswer(''); setRequestId(''); }}>{tr('新对话', 'New conversation')}</Button>
+              <span className="ai-playground-shortcut">Shift + Enter {tr('换行','for newline')}</span>
+              {(history.length>0||pendingPrompt)&&<Button disabled={!!busy} onClick={() => { setHistory([]); setPendingPrompt('');setAnswer(''); setRequestId(''); }}>{tr('新对话', 'New conversation')}</Button>}
+              {busy!=='test'&&<>
               <Button
                 variant="primary"
                 disabled={!!busy || !workspace.enabled || !model || !prompt.trim()}
@@ -626,14 +650,15 @@ export default function AIGateway() {
               >
                 {tr('发送', 'Send')}
               </Button>
+              </>}
               {busy === 'test' && (
                 <Button onClick={() => abort.current?.abort()}>
                   {tr('停止', 'Stop')}
                 </Button>
               )}
-            </footer>
-            {answer && <div className="ai-api-answer"><MessageContent text={answer} /></div>}
-            {requestId && <p>{tr('请求 ID', 'Request ID')}: <code>{requestId}</code></p>}
+            </div>
+            </div>
+            {requestId && <details className="ai-playground-diagnostics"><summary>{tr('请求详情','Request details')}</summary><span>{tr('请求 ID', 'Request ID')}: <code>{requestId}</code></span></details>}
           </section>}
           {tab === 'requests' && <section className="ai-api-card">
             <h2>{tr('请求记录', 'Request records')}</h2>

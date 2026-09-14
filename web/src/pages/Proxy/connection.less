@@ -1,0 +1,63 @@
+.liaison-initial-connection {
+  margin: 4px 0 0;
+  min-width: 0;
+  padding: 16px 0 0;
+  border: 0;
+  border-top: 1px solid rgb(var(--line));
+}
+.liaison-initial-connection legend {
+  font-size: 13px;
+  font-weight: 680;
+  padding-right: 8px;
+}
+.liaison-initial-connection p {
+  font-size: 12px;
+  color: rgb(var(--muted));
+  margin: 8px 0 16px;
+}
+.liaison-initial-connection input[type='checkbox'] {
+  accent-color: rgb(var(--accent));
+}
+.liaison-initial-connection-fields {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+@media (max-width: 600px) {
+  .liaison-initial-connection-fields {
+    grid-template-columns: 1fr;
+  }
+}
+.liaison-access-identity {
+  display: contents;
+}
+.liaison-llm-mapping {display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:8px;align-items:end;}
+.liaison-llm-models {max-height:220px;overflow:auto;display:flex;flex-direction:column;gap:8px;padding:12px;border:1px solid rgb(var(--line));border-radius:var(--control-radius);}
+.liaison-llm-models code {overflow-wrap:anywhere;font-family:ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,monospace;}
+.liaison-llm-connection .liaison-initial-connection-fields {align-items:start;gap:16px;}
+.liaison-llm-connection .liaison-checkbox {display:flex;align-items:center;gap:8px;}
+.liaison-llm-connection .liaison-checkbox input {flex-shrink:0;}
+.liaison-llm-connection > p {margin:8px 0 16px;line-height:1.6;}
+.liaison-llm-models p {margin:0 0 4px;}
+.liaison-llm-access-options {display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:12px;font-size:12px;}
+.liaison-llm-access-options > span {color:rgb(var(--muted));}
+.liaison-llm-mappings {border-top:1px solid rgb(var(--line));padding-top:12px;}
+.liaison-llm-mappings summary {cursor:pointer;font-size:12px;color:rgb(var(--muted));}
+.liaison-llm-mappings summary:focus-visible {outline:2px solid rgb(var(--accent));outline-offset:3px;}
+.liaison-llm-mappings .liaison-llm-mapping {margin:12px 0;}
+@media(max-width:600px){.liaison-llm-mapping{grid-template-columns:minmax(0,1fr);}}
+.liaison-access-connection-summary { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.liaison-access-connection-summary > span { white-space: nowrap; }
+.liaison-access-connection-summary small { font-size: 12px; line-height: 1.5; color: rgb(var(--muted)); white-space: nowrap; }
+.liaison-access-list .liaison-table { table-layout: auto; min-width: 820px; }
+.liaison-access-list .liaison-status { gap: 4px; }
+.liaison-access-list .liaison-table :is(th,td) { white-space: nowrap; }
+.liaison-access-list .liaison-access-actions { display: inline-flex; width: max-content; flex-wrap: nowrap; gap: 12px; }
+.liaison-access-list .liaison-table-link:disabled { color: rgb(var(--muted)); opacity: 0.55; cursor: not-allowed; }
+.liaison-access-list .liaison-table-link:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 3px; border-radius: 2px; }
+.liaison-access-list .liaison-table-link.is-danger { color: rgb(var(--danger)); }
+.liaison-initial-connection-fields > .is-full { grid-column: 1 / -1; }
+.liaison-connection-muted { color: rgb(var(--muted)); font-size: 12px; }
+.liaison-access-list a.liaison-access-app-link { color: rgb(var(--ink)); text-decoration: none; white-space: nowrap; }
+.liaison-access-list a.liaison-access-app-link:is(:hover,:focus-visible) { color: rgb(var(--accent)); text-decoration: underline; text-underline-offset: 3px; }
+.liaison-access-list a.liaison-access-app-link:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: 3px; border-radius: 2px; }

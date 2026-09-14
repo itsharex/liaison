@@ -18,9 +18,12 @@ const ManagementLog = lazy(() => import('@/pages/ManagementLog'));
 const User = lazy(() => import('@/pages/User'));
 const Settings = lazy(() => import('@/pages/Settings'));
 const WebSSH = lazy(() => import('@/pages/WebSSH'));
+const WebSFTP = lazy(() => import('@/pages/WebSFTP'));
 const WebDesktop = lazy(() => import('@/pages/WebDesktop'));
 const WebData = lazy(() => import('@/pages/WebData'));
+const WebS3 = lazy(() => import('@/pages/WebS3'));
 const AIGateway = lazy(() => import('@/pages/AIGateway'));
+const AccessEntry = lazy(() => import('@/pages/Proxy/AccessEntry'));
 
 function RequireAuth({ children }: { children: ReactNode }) {
   const token = useSession((state) => state.token);
@@ -85,20 +88,22 @@ export default function App() {
             <Route path="/audit" element={<Navigate to="/logs/audit" replace />} />
             <Route path="/users" element={<User />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/webssh/:proxyId" element={<WebSSH />} />
+            <Route path="/webssh/:proxyId" element={<AccessEntry family="webssh" />} />
+            <Route path="/websftp/:proxyId" element={<WebSFTP />} />
             <Route path="/webssh/sessions/:connectionReference" element={<WebSSH />} />
             <Route
               path="/webssh/:proxyId/connections/:credentialId/*"
               element={<WebSSH />}
             />
             <Route path="/webssh/:proxyId/session/*" element={<WebSSH />} />
-            <Route path="/webdesktop/:proxyId" element={<WebDesktop />} />
+            <Route path="/webdesktop/:proxyId" element={<AccessEntry family="webdesktop" />} />
             <Route
               path="/webdesktop/:proxyId/connections/:credentialId/*"
               element={<WebDesktop />}
             />
             <Route path="/webdesktop/:proxyId/session/*" element={<WebDesktop />} />
-            <Route path="/webdata/:proxyId" element={<WebData />} />
+            <Route path="/webdata/:proxyId" element={<AccessEntry family="webdata" />} />
+            <Route path="/webs3/:proxyId/connections/:credentialId/*" element={<WebS3 />} />
             <Route
               path="/webdata/:proxyId/connections/:credentialId/*"
               element={<WebData />}

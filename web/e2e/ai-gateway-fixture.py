@@ -2,6 +2,7 @@
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import json
 import time
+import os
 
 class Handler(BaseHTTPRequestHandler):
     protocol_version = 'HTTP/1.1'
@@ -43,11 +44,11 @@ class Handler(BaseHTTPRequestHandler):
             return self.reply(400, {'error':'limited stream must request usage'})
         if command == 'missing-usage':
             if anthropic:
-                return self.reply(200, {'id':'fixture-1','content':[{'type':'text','text':text}], 'stop_reason':'end_turn'})
+                return self.reply(200, {'id':'fixture-1','type':'message','role':'assistant','model':'fixture-chat','content':[{'type':'text','text':text}], 'stop_reason':'end_turn'})
             return self.reply(200, {'id':'fixture-1','model':'fixture-chat','choices':[{'index':0,'message':{'role':'assistant','content':text},'finish_reason':'stop'}]})
         if not body.get('stream'):
             if anthropic:
-                return self.reply(200, {'id':'fixture-1','content':[{'type':'text','text':text}], 'stop_reason':'end_turn','usage':{'input_tokens':7,'output_tokens':9}})
+                return self.reply(200, {'id':'fixture-1','type':'message','role':'assistant','model':'fixture-chat','content':[{'type':'text','text':text}], 'stop_reason':'end_turn','usage':{'input_tokens':7,'output_tokens':9}})
             return self.reply(200, {'id':'fixture-1','object':'chat.completion','model':'fixture-chat','choices':[{'index':0,'message':{'role':'assistant','content':text},'finish_reason':'stop'}],'usage':{'prompt_tokens':7,'completion_tokens':9}})
         self.send_response(200)
         self.send_header('Content-Type','text/event-stream')
@@ -58,7 +59,7 @@ class Handler(BaseHTTPRequestHandler):
             self.wfile.write(('data: '+encoded+'\n\n').encode());self.wfile.flush()
         slow = body.get('messages',[{}])[-1].get('content') == 'slow-fixture'
         if anthropic:
-            event({'type':'message_start','message':{'id':'fixture-1','usage':{'input_tokens':7,'output_tokens':0}}})
+            event({'type':'message_start','message':{'id':'fixture-1','type':'message','role':'assistant','model':'fixture-chat','content':[],'usage':{'input_tokens':7,'output_tokens':0}}})
             event({'type':'content_block_start','index':0,'content_block':{'type':'text','text':''}})
             event({'type':'content_block_delta','index':0,'delta':{'type':'text_delta','text':text}})
             event({'type':'message_delta','delta':{'stop_reason':'end_turn'},'usage':{'output_tokens':9}})
@@ -73,4 +74,4 @@ class Handler(BaseHTTPRequestHandler):
             event('[DONE]')
         self.close_connection = True
 
-ThreadingHTTPServer(('127.0.0.1',19380), Handler).serve_forever()
+ThreadingHTTPServer(('127.0.0.1',int(os.environ.get('E2E_FIXTURE_PORT','19380'))), Handler).serve_forever()

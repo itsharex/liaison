@@ -1,0 +1,65 @@
+// Real staging smoke: pass the password via stdin; no credentials are recorded.
+const {chromium,request}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict');
+const fs=require('node:fs');
+(async()=>{
+ const origin=process.env.E2E_BASE_URL;assert(origin&&process.env.E2E_EMAIL&&process.env.E2E_SSH_PATH);
+ const req=await request.newContext({baseURL:origin,ignoreHTTPSErrors:true});let browser,page,authToken;const fileSessions=new Set();
+ try {
+  const login=await req.post('/api/v1/iam/login',{data:{email:process.env.E2E_EMAIL,password:fs.readFileSync(0,'utf8').trim()}});
+  assert(login.ok(),'Login failed');const token=(await login.json()).data.token;assert(token);authToken=token;
+  browser=await chromium.launch();
+  const context=await browser.newContext({ignoreHTTPSErrors:true,viewport:{width:1440,height:1000}});context.setDefaultTimeout(20000);
+  await context.addInitScript(token=>{localStorage.setItem('token',token);localStorage.setItem('liaison-locale','zh-CN');localStorage.setItem('liaison-theme-preference','dark')},token);
+  page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));
+  page.on('response',async r=>{if(r.request().method()==='POST'&&r.url().endsWith('/files/sessions')&&r.ok()){const d=await r.json();if(d.data?.id)fileSessions.add(d.data.id)}});
+  await page.goto(origin+process.env.E2E_SSH_PATH);
+  await page.getByRole('tab',{name:'文件',exact:true}).click();
+  const list=page.locator('.webssh-files-list');await list.waitFor();
+  await page.waitForFunction(()=>document.querySelector('.webssh-files-list')?.getAttribute('aria-busy')==='false');
+  assert.equal(await page.getByRole('dialog').count(),0,'File view must not use a dialog');
+  assert(await list.locator('tbody tr').count()>0,'Real home directory must load, not just display an empty shell');
+  console.log('PASS real home listing');
+  const sessionURL=page.url();
+  await page.getByRole('button',{name:'编辑路径',exact:true}).click();const path=page.getByRole('textbox',{name:'远程路径',exact:true});await path.fill('/etc');await path.press('Enter');
+  await page.waitForFunction(()=>document.querySelector('.webssh-files-list')?.getAttribute('aria-busy')==='false');
+  await page.getByRole('textbox',{name:'筛选当前目录',exact:true}).fill('os-release');
+  await page.getByRole('button',{name:'os-release',exact:true}).waitFor();
+  console.log('PASS real /etc listing');
+  await page.getByRole('textbox',{name:'筛选当前目录',exact:true}).fill('issue');
+  await page.getByRole('button',{name:'issue',exact:true}).dblclick();
+  await page.getByRole('complementary').waitFor();
+  await page.waitForFunction(()=>!!document.querySelector('.webssh-file-preview pre')?.textContent);
+  await page.getByRole('textbox',{name:'筛选当前目录',exact:true}).fill('');
+  await page.screenshot({path:'/tmp/liaison-files-live.png'});
+  await page.getByRole('button',{name:'关闭预览',exact:true}).click();
+  await page.getByRole('textbox',{name:'筛选当前目录',exact:true}).fill('os-release');
+  await page.getByRole('tab',{name:'终端',exact:true}).click();await page.locator('.webssh-terminal').waitFor();
+  assert(await page.locator('.webssh-terminal').evaluate(e=>e.clientHeight>300),'Terminal must retain usable height');
+  assert.equal(page.url(),sessionURL,'Switching views must retain the connection');
+  await page.getByRole('tab',{name:'文件',exact:true}).click();
+  await page.locator('.webssh-files-pane').waitFor({state:'visible'});
+  assert.equal(await page.getByRole('textbox',{name:'筛选当前目录',exact:true}).inputValue(),'os-release','File state must survive tab switching');
+  console.log('PASS retained file state');
+  await page.getByRole('button',{name:'Agent',exact:true}).click();
+  await page.waitForFunction(()=>{const p=document.querySelector('.webssh-files-pane')?.getBoundingClientRect();return p&&p.width>300&&p.height>400});
+  assert.equal(await page.getByRole('textbox',{name:'筛选当前目录',exact:true}).inputValue(),'os-release');
+  await page.screenshot({path:'/tmp/liaison-files-live-agent.png'});
+  await page.getByRole('button',{name:'关闭',exact:true}).click();
+  await page.getByRole('button',{name:'全屏',exact:true}).click();
+  await page.waitForFunction(()=>document.fullscreenElement?.classList.contains('webssh-shell'));
+  await page.getByRole('button',{name:'退出全屏',exact:true}).click();
+  await page.waitForFunction(()=>!document.fullscreenElement);
+  await page.getByRole('button',{name:'收起侧栏',exact:true}).click();
+  await page.setViewportSize({width:390,height:844});
+  await page.getByRole('button',{name:'目录',exact:true}).click();
+  await page.waitForFunction(()=>document.querySelector('.webssh-files-pane')?.clientWidth>250);
+  await page.screenshot({path:'/tmp/liaison-files-live-mobile.png'});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth));assert.deepEqual(errors,[]);
+  console.log('PASS real SSH list/preview, /etc navigation, no modal, terminal/file state retention, Agent/fullscreen/mobile layout');
+ }finally{
+  if(page)await page.screenshot({path:'/tmp/liaison-files-live-last.png'});
+  for(const id of fileSessions)await req.delete(`/api/v1/webssh/files/sessions/${encodeURIComponent(id)}`,{headers:{Authorization:`Bearer ${authToken}`}});
+  await browser?.close();await req.dispose();
+ }
+})().catch(e=>{console.error(e.stack);process.exitCode=1});

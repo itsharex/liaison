@@ -204,6 +204,27 @@
     pre { white-space: pre-wrap; overflow-wrap: anywhere; }
     small { color: var(--text-secondary); }
   }
+  .ai-playground {
+    .ai-playground-messages { display: flex; flex-direction: column; gap: 20px; height: clamp(240px, 42vh, 480px); overflow-y: auto; padding: 16px 4px; overscroll-behavior: contain; }
+    .ai-playground-empty { margin: auto; color: rgb(var(--muted)); font-size: 13px; }
+    .ai-api-answer { padding: 0; min-width: 0; flex-shrink: 0; }
+    .ai-api-answer > small { display: block; margin-bottom: 6px; font-size: 12px; }
+    .ai-api-answer.is-user { align-self: flex-end; max-width: 90%; padding: 10px 13px; border-radius: 12px; background: rgb(var(--accent) / .10); }
+    .ai-api-answer p { margin: 6px 0; }
+    .ai-playground-composer { margin-top: 16px; padding: 12px; border: 1px solid rgb(var(--line)); border-radius: 12px; background: rgb(var(--panel) / .76); }
+    .ai-playground-composer:focus-within { border-color: rgb(var(--accent) / .55); box-shadow: 0 0 0 2px rgb(var(--accent) / .08); }
+    .ai-playground-composer textarea { width: 100%; min-height: 80px; max-height: 180px; border: 0; box-shadow: none; background: transparent; padding: 4px; }
+    .ai-playground-controls { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 8px; }
+    .ai-playground-controls select { width: 220px; max-width: 100%; min-width: 0; margin-right: auto; }
+    .ai-playground-shortcut { color: rgb(var(--muted)); font-size: 11px; }
+    .ai-playground-diagnostics { margin-top: 12px; color: rgb(var(--muted)); font-size: 12px; overflow-wrap: anywhere; }
+    .ai-playground-diagnostics summary { cursor: pointer; }
+    .ai-playground-diagnostics span { display: block; margin-top: 8px; }
+    @media (max-width: 650px) {
+      .ai-playground-controls select { width: 100%; }
+      .ai-playground-shortcut { margin-right: auto; }
+    }
+  }
   .ai-api-table {
     overflow: auto;
     table {

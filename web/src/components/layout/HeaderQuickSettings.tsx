@@ -1,9 +1,9 @@
 import { useI18n } from '@/i18n';
 import { useThemeMode } from '@/store/theme';
-import { ChevronDown, Languages, Moon, Sun } from 'lucide-react';
+import { Check, ChevronDown, Globe, Moon, Sun } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 
-export function HeaderQuickSettings() {
+export function HeaderQuickSettings({ languageOnly = false }: { languageOnly?: boolean }) {
   const { locale, setLocale, tr } = useI18n();
   const { resolved, setPreference } = useThemeMode();
   const [languageOpen, setLanguageOpen] = useState(false);
@@ -32,7 +32,6 @@ export function HeaderQuickSettings() {
         ref={languageRef}
         onMouseEnter={() => setLanguageOpen(true)}
         onMouseLeave={() => setLanguageOpen(false)}
-        onFocusCapture={() => setLanguageOpen(true)}
         onBlurCapture={(event) => {
           if (!event.currentTarget.contains(event.relatedTarget as Node | null)) setLanguageOpen(false);
         }}
@@ -42,24 +41,20 @@ export function HeaderQuickSettings() {
           className="liaison-header-language-button"
           aria-label={tr('选择语言', 'Select language')}
           aria-expanded={languageOpen}
-          onClick={() => setLanguageOpen((open) => !open)}
+          onClick={() => setLanguageOpen(true)}
         >
-          <Languages size={16} />
+          <Globe size={16} />
+          <span>{locale === 'zh-CN' ? '简体中文' : 'English'}</span>
           <ChevronDown size={14} className={languageOpen ? 'is-open' : ''} />
         </button>
         {languageOpen ? (
-          <div className="liaison-language-menu" role="menu">
-            <p>{locale === 'zh-CN' ? '中文' : 'English'}</p>
-            {locale === 'zh-CN' ? (
-              <button type="button" onClick={() => { setLocale('en-US'); setLanguageOpen(false); }}>English</button>
-            ) : (
-              <button type="button" onClick={() => { setLocale('zh-CN'); setLanguageOpen(false); }}>中文</button>
-            )}
+          <div className="liaison-language-menu">
+            {(['en-US', 'zh-CN'] as const).map(value => <button key={value} type="button" aria-pressed={locale === value} onClick={() => { setLocale(value); setLanguageOpen(false); languageRef.current?.querySelector('button')?.focus(); }}><span>{value === 'en-US' ? 'English' : '简体中文'}</span>{locale === value && <Check size={14} />}</button>)}
           </div>
         ) : null}
       </div>
 
-      <button
+      {!languageOnly && <button
         type="button"
         className={`liaison-theme-toggle${resolved === 'dark' ? ' is-dark' : ''}`}
         role="switch"
@@ -72,7 +67,7 @@ export function HeaderQuickSettings() {
           <Sun className="is-sun" size={12} />
           <Moon className="is-moon" size={12} />
         </span>
-      </button>
+      </button>}
     </div>
   );
 }

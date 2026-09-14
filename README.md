@@ -2,7 +2,7 @@
 
 > **AI-powered zero-trust access for private applications.**
 
-Connect to private servers, databases, desktops, and web apps. Work with an AI Agent in your SSH and database sessions, or ask the home Agent about the connectors, devices, and applications you can access. Self-hosted, with outbound connectors and permission-controlled tools.
+Reach private services over SSH/SFTP, database, cache, S3 object storage, desktop, Web, and LLM protocols. Work with an AI Agent in your SSH and database sessions, or ask the home Agent about the connectors, devices, and applications you can access. Self-hosted, with outbound connectors and permission-controlled tools.
 
 [![Go](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/liaisonio/liaison)](https://goreportcard.com/report/github.com/liaisonio/liaison)
@@ -21,7 +21,9 @@ English | [简体中文](./README_zh.md) | [日本語](./README_ja.md) | [한국
 - 💬 **Ask about your resources** — Find and inspect your connectors, devices, and applications from the home Agent. Resource visibility stays scoped to the signed-in user.
 - 🔌 **Outbound-only connectors** — connect private networks without opening inbound ports on them.
 - 🔐 **Application access** — publish TCP, HTTP, HTTPS, WebSocket, and SSH services with per-access controls.
-- 🖥️ **Browser workspaces** — use Web SSH, RDP, VNC, MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, Redis, and MongoDB without local clients.
+- 🖥️ **Browser workspaces** — WebSSH, WebSFTP, WebRDP, WebVNC, MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, ClickHouse, MongoDB, Elasticsearch, OpenSearch, Redis, and Memcached.
+- 📁 **Files and objects** — Manage remote files with WebSFTP. Browse buckets, prefixes, and object metadata from S3-compatible services with WebS3 (currently read-only).
+- 🤖 **Private model access** — OpenAI-compatible, Anthropic Messages, and Ollama upstreams with scoped API keys, model mappings, usage records, and per-key Token quotas.
 - 🔎 **Application discovery** — scan connector devices and register discovered services from the console.
 - 👥 **Identity and access management** — organize users and resources, with Casbin-backed authorization.
 - 🛡️ **Firewall policies** — restrict TCP and HTTP access by source IP and CIDR.
@@ -33,9 +35,9 @@ English | [简体中文](./README_zh.md) | [日本語](./README_ja.md) | [한국
 Download the self-contained Docker bundle, extract it, and run the installer (Docker 20.10+ with Compose is required):
 
 ```bash
-wget https://github.com/liaisonio/liaison/releases/download/v1.12.0/liaison-1.12.0-linux-amd64.tar.gz
-tar -xzf liaison-1.12.0-linux-amd64.tar.gz
-cd liaison-1.12.0-linux-amd64
+wget https://github.com/liaisonio/liaison/releases/download/v1.13.0/liaison-1.13.0-linux-amd64.tar.gz
+tar -xzf liaison-1.13.0-linux-amd64.tar.gz
+cd liaison-1.13.0-linux-amd64
 ./install.sh
 ```
 
@@ -46,29 +48,17 @@ Open `https://<server-address>` after installation. The installer prints the ini
 Access your existing private services through Liaison.
 
 <table>
-  <tr>
-    <th align="left">Terminals & desktops</th>
-    <td><img src="docs/assets/integrations/ssh.svg" width="40" height="40" alt="SSH" title="SSH" />&nbsp;&nbsp; <img src="docs/assets/integrations/windows.svg" width="40" height="40" alt="RDP" title="RDP" />&nbsp;&nbsp; <img src="docs/assets/integrations/vnc.png" width="40" height="40" alt="VNC" title="VNC" /></td>
-  </tr>
-  <tr>
-    <th align="left">SQL databases</th>
-    <td><img src="docs/assets/integrations/mysql.svg" width="40" height="40" alt="MySQL" title="MySQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/mariadb.svg" width="40" height="40" alt="MariaDB" title="MariaDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/postgresql.svg" width="40" height="40" alt="PostgreSQL" title="PostgreSQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/sqlserver.svg" width="40" height="40" alt="SQL Server" title="SQL Server" />&nbsp;&nbsp; <img src="docs/assets/integrations/oracle.svg" width="40" height="40" alt="Oracle" title="Oracle" /></td>
-  </tr>
-  <tr>
-    <th align="left">Data & search</th>
-    <td><img src="docs/assets/integrations/mongodb.svg" width="40" height="40" alt="MongoDB" title="MongoDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/redis.svg" width="40" height="40" alt="Redis" title="Redis" />&nbsp;&nbsp; <img src="docs/assets/integrations/clickhouse.svg" width="40" height="40" alt="ClickHouse" title="ClickHouse" />&nbsp;&nbsp; <img src="docs/assets/integrations/elasticsearch.svg" width="40" height="40" alt="Elasticsearch" title="Elasticsearch" />&nbsp;&nbsp; <img src="docs/assets/integrations/opensearch.svg" width="40" height="40" alt="OpenSearch" title="OpenSearch" /></td>
-  </tr>
-  <tr>
-    <th align="left">LLM upstream protocols</th>
-    <td><img src="docs/assets/integrations/openai.svg" width="40" height="40" alt="OpenAI" title="OpenAI" />&nbsp;&nbsp; <img src="docs/assets/integrations/anthropic.svg" width="40" height="40" alt="Anthropic / Claude" title="Anthropic / Claude" /></td>
-  </tr>
-  <tr>
-    <th align="left">Web & TCP</th>
-    <td>HTTP · HTTPS · WebSocket · TCP</td>
-  </tr>
+  <tr><th align="left">SSH / SFTP</th><td><img src="docs/assets/integrations/ssh.svg" width="40" height="40" alt="SSH / WebSSH" title="SSH / WebSSH" />&nbsp;&nbsp; <img src="docs/assets/integrations/sftp.svg" width="40" height="40" alt="WebSFTP" title="WebSFTP" /></td></tr>
+  <tr><th align="left">Desktop</th><td><img src="docs/assets/integrations/windows.svg" width="40" height="40" alt="WebRDP" title="WebRDP" />&nbsp;&nbsp; <img src="docs/assets/integrations/vnc.png" width="40" height="40" alt="WebVNC" title="WebVNC" /></td></tr>
+  <tr><th align="left">SQL databases</th><td><img src="docs/assets/integrations/mysql.svg" width="40" height="40" alt="WebMySQL" title="WebMySQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/mariadb.svg" width="40" height="40" alt="WebMariaDB" title="WebMariaDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/postgresql.svg" width="40" height="40" alt="WebPostgreSQL" title="WebPostgreSQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/sqlserver.svg" width="40" height="40" alt="WebSQLServer" title="WebSQLServer" />&nbsp;&nbsp; <img src="docs/assets/integrations/oracle.svg" width="40" height="40" alt="WebOracle" title="WebOracle" />&nbsp;&nbsp; <img src="docs/assets/integrations/clickhouse.svg" width="40" height="40" alt="WebClickHouse" title="WebClickHouse" /></td></tr>
+  <tr><th align="left">Data & search</th><td><img src="docs/assets/integrations/mongodb.svg" width="40" height="40" alt="WebMongoDB" title="WebMongoDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/elasticsearch.svg" width="40" height="40" alt="WebElasticsearch" title="WebElasticsearch" />&nbsp;&nbsp; <img src="docs/assets/integrations/opensearch.svg" width="40" height="40" alt="WebOpenSearch" title="WebOpenSearch" /></td></tr>
+  <tr><th align="left">Cache</th><td><img src="docs/assets/integrations/redis.svg" width="40" height="40" alt="WebRedis" title="WebRedis" />&nbsp;&nbsp; <img src="docs/assets/integrations/memcached.svg" width="40" height="40" alt="WebMemcached" title="WebMemcached" /></td></tr>
+  <tr><th align="left">Storage</th><td><img src="docs/assets/integrations/s3.svg" width="40" height="40" alt="WebS3 (S3-compatible)" title="WebS3 (S3-compatible)" /></td></tr>
+  <tr><th align="left">LLM upstream protocols</th><td><img src="docs/assets/integrations/openai.svg" width="40" height="40" alt="OpenAI-compatible" title="OpenAI-compatible" />&nbsp;&nbsp; <img src="docs/assets/integrations/anthropic.svg" width="40" height="40" alt="Anthropic Messages" title="Anthropic Messages" />&nbsp;&nbsp; <img src="docs/assets/integrations/ollama.svg" width="40" height="40" alt="Ollama" title="Ollama" /></td></tr>
+  <tr><th align="left">Web / TCP</th><td><img src="docs/assets/integrations/web.svg" width="40" height="40" alt="HTTP / HTTPS / WebSocket" title="HTTP / HTTPS / WebSocket" />&nbsp;&nbsp; <img src="docs/assets/integrations/tcp.svg" width="40" height="40" alt="TCP" title="TCP" /></td></tr>
 </table>
 
-LLM upstreams support **OpenAI-compatible** and **Anthropic Messages** protocols. The public endpoint uses the OpenAI-compatible protocol.
+LLM upstreams support **OpenAI-compatible**, **Anthropic Messages**, and **Ollama**. Clients use OpenAI-compatible endpoints; Anthropic upstreams also expose native Messages endpoints. Logos identify existing services you can access, not products bundled or deployed by Liaison. Database and desktop logos refer to browser workspaces, not native database/RDP/VNC server listeners.
 
 ## Agent model providers
 

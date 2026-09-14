@@ -7,7 +7,8 @@ const LOCALE_CHANGE_EVENT = 'liaison-locale-change';
 
 export const getLocale = (): LiaisonLocale => {
   const locale = localStorage.getItem(LOCALE_STORAGE_KEY);
-  return locale === 'en-US' ? 'en-US' : 'zh-CN';
+  if (locale === 'en-US' || locale === 'zh-CN') return locale;
+  return /^zh(?:-|$)/i.test(navigator.languages?.[0] || navigator.language) ? 'zh-CN' : 'en-US';
 };
 
 export const setLocale = (locale: LiaisonLocale) => {

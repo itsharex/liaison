@@ -178,9 +178,11 @@ func (web *web) handleAIGatewayHTTP(w http.ResponseWriter, r *http.Request) {
 // @Summary Call an authorized internal model through its Liaison connector
 // @Router /api/v1/ai/accesses/{id}/v1/models [get]
 // @Router /api/v1/ai/accesses/{id}/v1/chat/completions [post]
+// @Router /api/v1/ai/accesses/{id}/v1/messages [post]
 // @Success 200 {object} map[string]interface{}
 func (web *web) handleAIInference(w http.ResponseWriter, r *http.Request, id uint, operation string, debug bool) {
-	if !(operation == "v1/models" && r.Method == "GET" || operation == "v1/chat/completions" && r.Method == "POST") {
+	nativeMessages := operation == "v1/messages"
+	if !(operation == "v1/models" && r.Method == "GET" || (operation == "v1/chat/completions" || nativeMessages) && r.Method == "POST") {
 		aiError(w, 405)
 		return
 	}
@@ -191,7 +193,7 @@ func (web *web) handleAIInference(w http.ResponseWriter, r *http.Request, id uin
 	if debug {
 		grant, err = web.aiGateway.DebugGrant(ctx, id)
 	} else {
-		secret, ok := bearerToken(r)
+		secret, ok := aiInferenceKey(r, nativeMessages)
 		if !ok {
 			aiError(w, 401)
 			return
@@ -207,6 +209,10 @@ func (web *web) handleAIInference(w http.ResponseWriter, r *http.Request, id uin
 		return
 	}
 	defer grant.Upstream.Close()
+	if nativeMessages && (grant.Protocol != "anthropic" || r.Header.Get("anthropic-beta") != "" || r.Header.Get("anthropic-version") != "" && r.Header.Get("anthropic-version") != "2023-06-01") {
+		aiError(w, 400, "UNSUPPORTED_PROTOCOL_CAPABILITY")
+		return
+	}
 	if operation == "v1/models" {
 		items := make([]map[string]any, 0, len(grant.Models))
 		for _, alias := range aigateway.ModelAliases(grant.Models) {
@@ -228,7 +234,12 @@ func (web *web) handleAIInference(w http.ResponseWriter, r *http.Request, id uin
 		aiError(w, 413)
 		return
 	}
-	prepared, err := aigateway.Prepare(raw, grant.Models, grant.Protocol)
+	var prepared aigateway.Prepared
+	if nativeMessages {
+		prepared, err = aigateway.PrepareMessages(raw, grant.Models)
+	} else {
+		prepared, err = aigateway.Prepare(raw, grant.Models, grant.Protocol)
+	}
 	if err != nil {
 		aiError(w, aiStatus(err))
 		return
@@ -323,22 +334,32 @@ func (web *web) handleAIInference(w http.ResponseWriter, r *http.Request, id uin
 		return
 	}
 	if prepared.Stream {
-		if !strings.HasPrefix(resp.Header.Get("Content-Type"), "text/event-stream") {
+		contentType := resp.Header.Get("Content-Type")
+		if grant.Protocol == "ollama" && !strings.HasPrefix(contentType, "application/x-ndjson") || grant.Protocol != "ollama" && !strings.HasPrefix(contentType, "text/event-stream") {
 			aiError(w, 502)
 			return
 		}
 		w.Header().Set("Content-Type", "text/event-stream")
 		w.Header().Set("X-Accel-Buffering", "no")
 		controller := http.NewResponseController(w)
-		err = aigateway.RelaySSE(resp.Body, grant.Protocol, prepared.Alias, func(data []byte) error {
+		emit := func(data []byte) error {
 			if _, e := w.Write(data); e != nil {
 				return e
 			}
 			return controller.Flush()
-		}, &usage)
+		}
+		if nativeMessages {
+			err = aigateway.RelayMessagesSSE(resp.Body, prepared.Alias, emit, &usage)
+		} else {
+			err = aigateway.RelaySSE(resp.Body, grant.Protocol, prepared.Alias, emit, &usage)
+		}
 		if err != nil {
 			// Stream already started: emit a sanitized error, never a successful DONE.
-			if _, e := io.WriteString(w, "data: {\"error\":{\"type\":\"upstream_error\",\"message\":\"Stream interrupted\"}}\n\n"); e == nil {
+			errorFrame := "data: {\"error\":{\"type\":\"upstream_error\",\"message\":\"Stream interrupted\"}}\n\n"
+			if nativeMessages {
+				errorFrame = "event: error\ndata: {\"type\":\"error\",\"error\":{\"type\":\"api_error\",\"message\":\"Stream interrupted\"}}\n\n"
+			}
+			if _, e := io.WriteString(w, errorFrame); e == nil {
 				if e = controller.Flush(); e != nil {
 					cancel()
 				}
@@ -351,7 +372,11 @@ func (web *web) handleAIInference(w http.ResponseWriter, r *http.Request, id uin
 			aiError(w, 502)
 			return
 		}
-		body, e = aigateway.RewriteJSON(body, grant.Protocol, prepared.Alias, &usage)
+		if nativeMessages {
+			body, e = aigateway.RewriteMessagesJSON(body, prepared.Alias, &usage)
+		} else {
+			body, e = aigateway.RewriteJSON(body, grant.Protocol, prepared.Alias, &usage)
+		}
 		if e != nil {
 			aiError(w, 502)
 			return
@@ -363,4 +388,15 @@ func (web *web) handleAIInference(w http.ResponseWriter, r *http.Request, id uin
 		}
 	}
 	record.Status = 200
+}
+
+func aiInferenceKey(r *http.Request, nativeMessages bool) (string, bool) {
+	if nativeMessages && len(r.Header.Values("x-api-key")) > 0 {
+		values := r.Header.Values("x-api-key")
+		if len(values) != 1 || len(r.Header.Values("Authorization")) != 0 || strings.TrimSpace(values[0]) == "" || strings.TrimSpace(values[0]) != values[0] {
+			return "", false
+		}
+		return values[0], true
+	}
+	return bearerToken(r)
 }

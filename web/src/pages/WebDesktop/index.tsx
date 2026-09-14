@@ -1,3 +1,5 @@
+import AccessContext from '@/components/AccessContext';
+import {accessSource,useAccessBack} from '@/hooks/useAccessBack';
 import SessionWatermark, {
   buildSessionWatermarkLabel,
   useSessionWatermarkTime,
@@ -104,7 +106,7 @@ const WebDesktopPage: React.FC = () => {
   const savedCredentials = target?.credentials || [];
   const selectedSavedCredential = credentialId > 0 && savedCredentials.some(
     (item) =>
-      credentialKey(item.username, item.domain) ===
+      item.saved && credentialKey(item.username, item.domain) ===
       credentialKey(credentials.username, credentials.domain),
   );
   const savedOptions = savedCredentials.map((item) => {
@@ -118,17 +120,8 @@ const WebDesktopPage: React.FC = () => {
     return { label, value: key };
   });
   const requestedReturnPath = routeSearch.get('from') || '';
-  const accessReturnPath =
-    requestedReturnPath.startsWith('/proxy') &&
-    !requestedReturnPath.startsWith('//')
-      ? requestedReturnPath
-      : '/proxy?access_type=' + (protocol === 'vnc' ? 'webvnc' : 'webrdp');
-  const connectionListPath =
-    '/webdesktop/' +
-    proxyId +
-    (requestedReturnPath
-      ? '?from=' + encodeURIComponent(accessReturnPath)
-      : '');
+  const accessReturnPath = accessSource(routeSearch.toString(),'/proxy?access_type=' + (protocol === 'vnc' ? 'webvnc' : 'webrdp'));
+  const connectionListPath = accessReturnPath;
   const temporarySessionPath =
     '/webdesktop/' +
     proxyId +
@@ -186,13 +179,9 @@ const WebDesktopPage: React.FC = () => {
     sessionStartedAtRef.current = undefined;
   }, []);
 
-  const returnToAccess = useCallback(() => {
-    history.push(accessReturnPath);
-  }, [accessReturnPath]);
+  const returnToAccess = useAccessBack(accessReturnPath);
 
-  const returnToConnections = useCallback(() => {
-    history.push(connectionListPath);
-  }, [connectionListPath]);
+  const returnToConnections = useAccessBack(connectionListPath);
 
   const openNewConnection = useCallback(() => {
     initialCredentialPromptRef.current = false;
@@ -735,6 +724,7 @@ const WebDesktopPage: React.FC = () => {
     );
     if (!saved) return;
     initialSavedConnectRef.current = credentialId;
+    if(!saved.saved){setCredentials({username:saved.username||'',domain:saved.domain||'',password:'',save_credential:false});setCredentialOpen(true);return;}
     void connect({
       username: saved.username || '',
       domain: saved.domain || '',
@@ -1093,7 +1083,7 @@ const WebDesktopPage: React.FC = () => {
       <SessionPathNotice show={!!sessionPath.connectionId && !agentHandleID && !connecting} href={sessionPath.reconnectURL} />
       <div
         className={
-          'webdesktop-shell' +
+          'webdesktop-workspace' +
           (credentialOpen && !connected ? ' is-credential-setup' : '')
         }
       >
@@ -1102,38 +1092,15 @@ const WebDesktopPage: React.FC = () => {
             <Button
               className="webdesktop-back-button"
               variant="ghost"
-              aria-label={tr('返回连接', 'Back to connections')}
+              aria-label={tr('返回访问', 'Back to access')}
               onClick={returnToConnections}
             >
               <ArrowLeft size={16} />
             </Button>
-            <span className="webdesktop-screen-mark" aria-hidden="true">
-              {protocol.toUpperCase()}
-            </span>
-            <div>
-              <strong>
-                {target?.proxy_name ||
-                  tr('远程桌面会话', 'Remote desktop session')}
-              </strong>
-              <span>
-                {protocol === 'vnc'
-                  ? tr('VNC 远程桌面', 'VNC remote desktop')
-                  : tr('RDP 远程桌面', 'RDP remote desktop')}
-              </span>
-            </div>
+            <AccessContext name={target?.proxy_name || 'WebDesktop'} protocol={protocol.toUpperCase()} target={target?`${target.target_host}:${target.target_port}`:undefined}/>
           </div>
 
           <div className="webdesktop-session-meta">
-            <div>
-              <span>{tr('应用', 'Application')}</span>
-              <strong>{target?.application_name || '-'}</strong>
-            </div>
-            <div>
-              <span>{tr('目标', 'Target')}</span>
-              <strong>
-                {target ? `${target.target_host}:${target.target_port}` : '-'}
-              </strong>
-            </div>
             <div>
               <span>{tr('状态', 'Status')}</span>
               <strong
@@ -1197,6 +1164,8 @@ const WebDesktopPage: React.FC = () => {
           </div>
         </header>
 
+        <div className="webdesktop-workbench">
+        <div className="webdesktop-shell">
         {loading && (
           <div className="webdesktop-loading">
             <span className="ui-spinner" aria-label={tr('加载中', 'Loading')} />
@@ -1269,7 +1238,7 @@ const WebDesktopPage: React.FC = () => {
                   </p>
                   <div className="webdesktop-session-end-actions">
                     <Button onClick={returnToConnections}>
-                      {tr('返回连接', 'Back to connections')}
+                      {tr('返回访问', 'Back to access')}
                     </Button>
                     <Button
                       variant="primary"
@@ -1313,6 +1282,7 @@ const WebDesktopPage: React.FC = () => {
       </div>
 
       <AgentWorkspace
+        docked
         open={sessionPath.agentOpen}
         accessSessionId={sessionPath.agentSessionId}
         connectionId={sessionPath.connectionId}
@@ -1324,6 +1294,8 @@ const WebDesktopPage: React.FC = () => {
         protocol={protocol === 'vnc' ? 'Web VNC' : 'Web RDP'}
         onClose={sessionPath.closeAgent}
       />
+      </div>
+      </div>
 
       <Modal
         title={tr(

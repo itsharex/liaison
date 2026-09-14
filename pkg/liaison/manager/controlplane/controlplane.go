@@ -43,6 +43,7 @@ type ControlPlane interface {
 	GetWebSSHCredentials(ctx context.Context, proxyID uint) ([]*WebSSHCredential, error)
 	GetWebSSHCredentialSecret(ctx context.Context, proxyID uint, username string) (*WebSSHCredentialSecret, error)
 	SaveWebSSHCredential(ctx context.Context, proxyID uint, username, encryptedPassword, nonce string) error
+	SaveWebSFTPConnection(ctx context.Context, proxyID uint, name, username, encryptedPassword, nonce string, remember, create bool) error
 	TouchWebSSHCredential(ctx context.Context, proxyID uint, username string) error
 	DeleteWebSSHCredential(ctx context.Context, proxyID uint, username string) error
 

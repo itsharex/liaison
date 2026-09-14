@@ -38,6 +38,7 @@ func (*SessionExecutor) Protocols() []tool.Protocol {
 		tool.ProtocolOpenSearch,
 		tool.ProtocolPostgreSQL,
 		tool.ProtocolRedis,
+		tool.ProtocolMemcached,
 		tool.ProtocolMongoDB,
 		tool.ProtocolRDP,
 		tool.ProtocolVNC,

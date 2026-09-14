@@ -67,19 +67,30 @@ type AIAccessConfig struct {
 	ExternalProtocol string            `json:"external_protocol"`
 }
 type AIWorkspace struct {
-	Name      string   `json:"name"`
-	Enabled   bool     `json:"enabled"`
-	Models    []string `json:"models"`
-	CanManage bool     `json:"can_manage"`
+	Name              string   `json:"name"`
+	Enabled           bool     `json:"enabled"`
+	Models            []string `json:"models"`
+	CanManage         bool     `json:"can_manage"`
+	UpstreamProtocol  string   `json:"upstream_protocol"`
+	ExternalProtocol  string   `json:"external_protocol"`
+	ExternalProtocols []string `json:"external_protocols"`
 }
 
-// Workspace exposes public aliases only, never application configuration.
+// Workspace exposes public aliases and protocol names, never upstream addresses,
+// internal model mappings, credentials or the full application configuration.
 func (s *AIService) Workspace(ctx context.Context, id uint) (AIWorkspace, error) {
-	p, _, err := s.access(ctx, id, "use")
+	p, app, err := s.access(ctx, id, "use")
 	if err != nil {
 		return AIWorkspace{}, err
 	}
 	view := AIWorkspace{Name: p.Name, Models: []string{}}
+	upstream, err := s.cp.repo.GetAIApplication(ctx, app.ID)
+	if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
+		return AIWorkspace{}, err
+	}
+	if err == nil {
+		view.UpstreamProtocol = upstream.Protocol
+	}
 	_, err = s.actor(ctx, "accesses", "update")
 	view.CanManage = err == nil
 	c, err := s.cp.repo.GetAIAccess(ctx, id)
@@ -94,6 +105,11 @@ func (s *AIService) Workspace(ctx context.Context, id uint) (AIWorkspace, error)
 		return AIWorkspace{}, err
 	}
 	view.Models = aigateway.ModelAliases(mappings)
+	view.ExternalProtocol = "openai-compatible"
+	view.ExternalProtocols = []string{"openai-compatible"}
+	if view.UpstreamProtocol == "anthropic" {
+		view.ExternalProtocols = append(view.ExternalProtocols, "anthropic")
+	}
 	view.Enabled = c.Enabled && p.Status == model.ProxyStatusRunning
 	return view, nil
 }
@@ -201,7 +217,7 @@ func (s *AIService) SaveApplication(ctx context.Context, id uint, c AIApplicatio
 	if err != nil {
 		return AIApplicationConfig{}, err
 	}
-	if c.Protocol != "openai-compatible" && c.Protocol != "anthropic" || len(c.APIKey) > 8192 || strings.ContainsAny(c.APIKey, "\r\n") {
+	if c.Protocol != "openai-compatible" && c.Protocol != "anthropic" && c.Protocol != "ollama" || len(c.APIKey) > 8192 || strings.ContainsAny(c.APIKey, "\r\n") {
 		return AIApplicationConfig{}, ErrAIInvalid
 	}
 	u, err := aigateway.NewUpstream(aigateway.Target{Host: app.IP, Port: app.Port, TLS: c.TLS, BasePath: c.BasePath}, func(context.Context) (net.Conn, error) { return nil, ErrAIUnavailable })

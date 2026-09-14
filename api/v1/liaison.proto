@@ -282,6 +282,9 @@ message CreateProxyRequest {
     int32 port = 3 [json_name = "port"];
     string description = 4 [json_name = "description"];
     bool expose_public_port = 5 [json_name = "expose_public_port"];
+    // Includes websftp for browser-only SFTP access to an SSH application.
+    // Supported selections: tcp, http, ssh, webssh, websftp, web, aiapi.
+    // Native RDP/VNC/database servers are not implemented; use tcp or web.
     string access_protocol = 6 [json_name = "access_protocol"];
 }
 
@@ -299,6 +302,7 @@ message UpdateProxyRequest {
     string status = 4 [json_name = "status"];
     string description = 5 [json_name = "description"];
     optional bool expose_public_port = 6 [json_name = "expose_public_port"];
+    // Explicit selections use the same supported protocols as creation.
     string access_protocol = 7 [json_name = "access_protocol"];
 }
 

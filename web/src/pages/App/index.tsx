@@ -1,5 +1,5 @@
 import { Button, Column, DangerConfirm, DataTable, Field, Input, Modal, Notice, Pager, Select, StatusPill } from '@/components/ui';
-import { ApplicationIcon } from '@/components/icons/ApplicationIcon';
+import ProtocolIcon from '@/components/icons/ProtocolIcon';
 import { ACCESS_TYPES_CHANGED_EVENT, accessProtocolForType, accessTypeLabel, accessTypesForApplication, getProxyAccessType, isSupportedAccessType, isWebAccessType, type AccessType } from '@/constants/accessTypes';
 import { APPLICATION_TYPES, APPLICATION_TYPES_CHANGED_EVENT } from '@/constants/applicationTypes';
 import { useI18n } from '@/i18n';
@@ -7,7 +7,9 @@ import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { history, useSearchParams } from '@/lib/runtime';
 import { createApplication, createProxy, deleteApplication, getApplicationList, getEdgeList, getProxyList, updateApplication } from '@/services/api';
 import { Link2, Plus } from 'lucide-react';
-import { FormEvent, useCallback, useEffect, useMemo, useState } from 'react';
+import { FormEvent, useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import LLMConnection, {type LLMConnectionHandle} from '@/pages/Proxy/LLMConnection';
+import '@/pages/Proxy/connection.less';
 
 const pageSize = 10;
 
@@ -34,11 +36,16 @@ const AppPage: React.FC = () => {
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
   const routeType = routeSearch.get('application_type') || '';
+  const applicationId = routeSearch.get('application_id') || '';
+  useEffect(()=>{setPage(1);},[applicationId]);
   const [filters, setFilters] = useState({ name: '', application_type: routeType, device_name: '', target: '' });
   const debouncedName = useDebouncedValue(filters.name);
   const debouncedDeviceName = useDebouncedValue(filters.device_name);
   const debouncedTarget = useDebouncedValue(filters.target);
   const [createOpen, setCreateOpen] = useState(false);
+  const [modelApplication,setModelApplication]=useState<API.Application>();
+  const [modelError,setModelError]=useState(false);
+  const modelConnection=useRef<LLMConnectionHandle>(null);
   const [editRow, setEditRow] = useState<API.Application>();
   const [deleteRow, setDeleteRow] = useState<API.Application>();
   const [accessRow, setAccessRow] = useState<API.Application>();
@@ -96,13 +103,14 @@ const AppPage: React.FC = () => {
     const device = debouncedDeviceName.trim().toLowerCase();
     const target = debouncedTarget.trim().toLowerCase();
     return rows.filter((row) => {
+      if(applicationId&&String(row.id)!==applicationId)return false;
       if (name && !row.name.toLowerCase().includes(name)) return false;
       if (filters.application_type && row.application_type !== filters.application_type) return false;
       if (device && !(row.device?.name || '').toLowerCase().includes(device)) return false;
       if (target && !`${row.ip}:${row.port}`.toLowerCase().includes(target)) return false;
       return true;
     });
-  }, [debouncedDeviceName, debouncedName, debouncedTarget, filters.application_type, rows]);
+  }, [applicationId,debouncedDeviceName, debouncedName, debouncedTarget, filters.application_type, rows]);
   const visibleRows = useMemo(() => filteredRows.slice((page - 1) * pageSize, page * pageSize), [filteredRows, page]);
 
   const create = async (event: FormEvent) => {
@@ -113,7 +121,10 @@ const AppPage: React.FC = () => {
     setSaving(true);
     try {
       const response = await createApplication({ name: form.name.trim() || suggestedApplicationName, application_type: form.application_type, edge_id: Number(form.edge_id), ip: form.ip.trim(), port });
-      if (response.code !== 200) throw new Error(response.message);
+      if (response.code !== 200 || !response.data) throw new Error('create');
+      if(form.application_type==='llm'){
+        setCreateOpen(false);setForm(emptyApplication());setModelError(false);setModelApplication(response.data);await load();return;
+      }
       setCreateOpen(false); setForm(emptyApplication()); setNotice({ tone: 'success', text: tr('应用已创建', 'Application created') }); await load();
     } catch (error: any) { setNotice({ tone: 'danger', text: error?.message || tr('创建失败', 'Create failed') }); }
     finally { setSaving(false); }
@@ -128,9 +139,18 @@ const AppPage: React.FC = () => {
     try { const response = await deleteApplication(deleteRow.id); if (response.code !== 200) throw new Error(response.message); setDeleteRow(undefined); setNotice({ tone: 'success', text: tr('应用已删除', 'Application deleted') }); await load(); }
     catch (error: any) { setNotice({ tone: 'danger', text: error?.message || tr('删除失败', 'Delete failed') }); }
   };
-  const openAccess = (row: API.Application) => { setSuggestedAccessName(defaultAccessName()); setAccessRow(row); setAccessName(''); setAccessMode(accessTypesForApplication(row.application_type)[0].value); setPublicPort(''); };
+  const openAccess = (row: API.Application) => {
+    if(row.application_type==='llm'){history.push(`/proxy?category=llm&new_application=${encodeURIComponent(row.id)}`);return;}
+    setSuggestedAccessName(defaultAccessName()); setAccessRow(row); setAccessName(''); setAccessMode(accessTypesForApplication(row.application_type)[0].value); setPublicPort('');
+  };
   const openCreate = () => { setSuggestedApplicationName(defaultApplicationName()); setForm(emptyApplication()); setCreateOpen(true); };
   const closeCreate = () => { setCreateOpen(false); setForm(emptyApplication()); };
+  const finishModelApplication=async()=>{
+    if(!modelConnection.current||saving)return;
+    setSaving(true);setModelError(false);
+    try{await modelConnection.current.saveUpstream();setModelApplication(undefined);setNotice({tone:'success',text:tr('应用和上游配置已保存','Application and upstream settings saved')});}
+    catch{setModelError(true);}finally{setSaving(false);}
+  };
   const createAccess = async (event: FormEvent) => {
     event.preventDefault(); if (!accessRow) return;
     const accessProtocol = accessProtocolForType(accessMode);
@@ -145,7 +165,7 @@ const AppPage: React.FC = () => {
   };
 
   const columns: Column<API.Application>[] = [
-    { key: 'name', title: tr('应用名称', 'Application'), width: 190, render: (row) => <span className="liaison-inline-name"><ApplicationIcon size={14} />{row.name}</span> },
+    { key: 'name', title: tr('应用名称', 'Application'), width: 190, render: (row) => <span className="liaison-inline-name"><ProtocolIcon protocol={row.application_type} />{row.name}</span> },
     { key: 'type', title: tr('协议类型', 'Protocol'), width: 105, render: (row) => <StatusPill tone="info">{row.application_type.toUpperCase()}</StatusPill> },
     { key: 'target', title: tr('目标', 'Target'), width: 155, render: (row) => <code>{row.ip}:{row.port}</code> },
     { key: 'device', title: tr('所在设备', 'Device'), width: 150, render: (row) => row.device?.name || '-' },
@@ -159,6 +179,13 @@ const AppPage: React.FC = () => {
   ];
 
   return <div className="liaison-page-stack">
+    <Modal open={!!modelApplication} title={tr('配置模型应用','Configure model application')} width={520} closeOnMask={!saving} onClose={()=>{if(!saving){setModelApplication(undefined);setNotice({tone:'success',text:tr('应用已保留，可通过“模型接口”继续配置。','Application retained. Continue setup from Model API.')});}}} footer={<Button variant="primary" disabled={saving} onClick={()=>void finishModelApplication()}>{tr('完成','Done')}</Button>}>
+      <p>{modelApplication?.name}</p>
+      <p className="liaison-connection-muted">{tr('应用已登记。现在配置上游，即可获取模型列表。','Application registered. Configure its upstream to fetch available models.')}</p>
+      {modelApplication&&<LLMConnection key={modelApplication.id} ref={modelConnection} applicationId={String(modelApplication.id)} disabled={saving} applicationOnly/>}
+      {modelError&&<Notice tone="danger">{tr('保存失败，请等待模型列举完成或检查配置后重试。','Could not save. Wait for discovery to finish or check settings and retry.')}</Notice>}
+    </Modal>
+    {applicationId&&<Notice>{tr('正在查看所选应用','Showing the selected application')} <Button onClick={()=>history.push('/resource/app')}>{tr('全部应用','All applications')}</Button></Notice>}
     {notice ? <Notice tone={notice.tone}>{notice.text}</Notice> : null}
     <div className="liaison-filter-bar"><label className="liaison-compound"><span>{tr('应用名称', 'Application')}</span><input value={filters.name} onChange={(event) => { setFilters((value) => ({ ...value, name: event.target.value })); setPage(1); }} placeholder={tr('输入应用名称', 'Application name')} /></label><label className="liaison-compound"><span>{tr('协议', 'Protocol')}</span><select value={filters.application_type} onChange={(event) => { setFilters((value) => ({ ...value, application_type: event.target.value })); setPage(1); }}><option value="">{tr('全部', 'All')}</option>{APPLICATION_TYPES.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select></label><label className="liaison-compound"><span>{tr('所在设备', 'Device')}</span><input value={filters.device_name} onChange={(event) => { setFilters((value) => ({ ...value, device_name: event.target.value })); setPage(1); }} placeholder={tr('输入设备名称', 'Device name')} /></label><label className="liaison-compound"><span>{tr('目标地址', 'Target')}</span><input value={filters.target} onChange={(event) => { setFilters((value) => ({ ...value, target: event.target.value })); setPage(1); }} placeholder={tr('IP 或端口', 'IP or port')} /></label><div className="liaison-filter-actions"><Button onClick={() => { setFilters({ name: '', application_type: routeType, device_name: '', target: '' }); setPage(1); }}>{tr('重置', 'Reset')}</Button></div></div>
     <section className="liaison-list-panel"><header className="liaison-list-header"><h2>{tr('应用列表', 'Applications')}</h2><Button variant="primary" onClick={openCreate}><Plus size={14} />{tr('新建应用', 'Create application')}</Button></header><DataTable columns={columns} rows={visibleRows} rowKey={(row) => row.id} loading={loading} emptyText={tr('暂无应用', 'No applications')} /><Pager page={page} pageSize={pageSize} total={filteredRows.length} onPageChange={setPage} /></section>

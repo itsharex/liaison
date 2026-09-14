@@ -20,7 +20,8 @@ with the brand blue applied to the path.
 
 AI provider marks use [Lobe Icons](https://github.com/lobehub/lobe-icons)
 under its [MIT license](https://github.com/lobehub/lobe-icons/blob/master/LICENSE).
-Each mark is placed on the same padded neutral tile for light/dark readability.
+Marks have transparent backgrounds, without padded white tiles. Monochrome
+marks use a slate foreground so they remain visible in light and dark READMEs.
 Source paths under `packages/static-svg/icons/`:
 
 - `openai.svg` → `openai.svg`
@@ -33,3 +34,16 @@ Source paths under `packages/static-svg/icons/`:
 - `xiaomimimo.svg` → `mimo.svg`
 
 Logos identify supported integrations, not endorsement or partnership.
+
+SSH, SFTP, S3-compatible storage, Web and TCP use Lucide's `square-terminal`,
+`folder-sync`, `boxes`, `globe` and `cable` icons (ISC license), matching the console.
+These are protocol/category symbols, not vendor logos.
+
+Ollama uses the existing [Simple Icons Ollama mark](https://github.com/simple-icons/simple-icons/blob/develop/icons/ollama.svg)
+(CC0), with the same slate foreground for both themes.
+
+## Memcached
+
+`memcached.svg` is the existing Memcached mark from
+[SVG Logos by Gil Barbara](https://github.com/gilbarbara/logos/blob/main/logos/memcached.svg).
+Used to identify the accessed service; brand rights remain with their owners.

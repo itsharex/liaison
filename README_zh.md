@@ -2,7 +2,7 @@
 
 > **AI 驱动的私有应用零信任访问。**
 
-连接私有服务器、数据库、远程桌面与 Web 应用。在 SSH 和数据库会话中使用 AI Agent，或通过首页 Agent 查询自己可见的连接器、设备与应用。支持私有化部署，通过主动出站连接器接入，工具调用受用户权限约束。
+通过 SSH/SFTP、数据库、缓存、S3 对象存储、远程桌面、Web 和 LLM 协议访问私有服务。在 SSH 和数据库会话中使用 AI Agent，或通过首页 Agent 查询自己可见的连接器、设备与应用。支持私有化部署，通过主动出站连接器接入，工具调用受用户权限约束。
 
 [![Go](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
 [![Go Report Card](https://goreportcard.com/badge/github.com/liaisonio/liaison)](https://goreportcard.com/report/github.com/liaisonio/liaison)
@@ -21,7 +21,9 @@
 - 💬 **用对话查询资源** — 通过首页 Agent 查找和了解连接器、设备与应用，资源可见范围始终限定为当前登录用户。
 - 🔌 **主动出站连接器**：私有网络无需开放入站端口。
 - 🔐 **应用访问**：支持 TCP、HTTP、HTTPS、WebSocket 与 SSH，并可独立配置访问策略。
-- 🖥️ **浏览器工作台**：无需本地客户端即可使用 Web SSH、RDP、VNC、MySQL、MariaDB、PostgreSQL、SQL Server、Oracle、Redis 和 MongoDB。
+- 🖥️ **浏览器工作台**：使用 WebSSH、WebSFTP、WebRDP、WebVNC，以及 MySQL、MariaDB、PostgreSQL、SQL Server、Oracle、ClickHouse、MongoDB、Elasticsearch、OpenSearch、Redis 和 Memcached。
+- 📁 **文件与对象浏览**：通过 WebSFTP 管理远程文件；WebS3 浏览 S3 兼容服务的 Bucket、目录前缀和对象元数据（当前为只读）。
+- 🤖 **私有模型访问**：支持 OpenAI-compatible、Anthropic Messages 和 Ollama 上游，提供调用密钥、模型映射、用量记录与每密钥 Token 配额。
 - 🔎 **应用发现**：扫描连接器所在设备，并在控制台中登记发现的服务。
 - 👥 **身份与权限**：管理组织、用户与资源，权限由 Casbin 统一执行。
 - 🛡️ **防火墙策略**：按来源 IP 与 CIDR 限制 TCP 和 HTTP 访问。
@@ -33,9 +35,9 @@
 下载自带所有镜像的 Docker 离线包，解压后运行安装脚本（需要 Docker 20.10+ 及 Compose）：
 
 ```bash
-wget https://github.com/liaisonio/liaison/releases/download/v1.12.0/liaison-1.12.0-linux-amd64.tar.gz
-tar -xzf liaison-1.12.0-linux-amd64.tar.gz
-cd liaison-1.12.0-linux-amd64
+wget https://github.com/liaisonio/liaison/releases/download/v1.13.0/liaison-1.13.0-linux-amd64.tar.gz
+tar -xzf liaison-1.13.0-linux-amd64.tar.gz
+cd liaison-1.13.0-linux-amd64
 ./install.sh
 ```
 
@@ -46,29 +48,17 @@ cd liaison-1.12.0-linux-amd64
 通过 Liaison 访问已有的私有服务。
 
 <table>
-  <tr>
-    <th align="left">终端与桌面</th>
-    <td><img src="docs/assets/integrations/ssh.svg" width="40" height="40" alt="SSH" title="SSH" />&nbsp;&nbsp; <img src="docs/assets/integrations/windows.svg" width="40" height="40" alt="RDP" title="RDP" />&nbsp;&nbsp; <img src="docs/assets/integrations/vnc.png" width="40" height="40" alt="VNC" title="VNC" /></td>
-  </tr>
-  <tr>
-    <th align="left">关系型数据库</th>
-    <td><img src="docs/assets/integrations/mysql.svg" width="40" height="40" alt="MySQL" title="MySQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/mariadb.svg" width="40" height="40" alt="MariaDB" title="MariaDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/postgresql.svg" width="40" height="40" alt="PostgreSQL" title="PostgreSQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/sqlserver.svg" width="40" height="40" alt="SQL Server" title="SQL Server" />&nbsp;&nbsp; <img src="docs/assets/integrations/oracle.svg" width="40" height="40" alt="Oracle" title="Oracle" /></td>
-  </tr>
-  <tr>
-    <th align="left">数据与搜索</th>
-    <td><img src="docs/assets/integrations/mongodb.svg" width="40" height="40" alt="MongoDB" title="MongoDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/redis.svg" width="40" height="40" alt="Redis" title="Redis" />&nbsp;&nbsp; <img src="docs/assets/integrations/clickhouse.svg" width="40" height="40" alt="ClickHouse" title="ClickHouse" />&nbsp;&nbsp; <img src="docs/assets/integrations/elasticsearch.svg" width="40" height="40" alt="Elasticsearch" title="Elasticsearch" />&nbsp;&nbsp; <img src="docs/assets/integrations/opensearch.svg" width="40" height="40" alt="OpenSearch" title="OpenSearch" /></td>
-  </tr>
-  <tr>
-    <th align="left">LLM 上游协议</th>
-    <td><img src="docs/assets/integrations/openai.svg" width="40" height="40" alt="OpenAI" title="OpenAI" />&nbsp;&nbsp; <img src="docs/assets/integrations/anthropic.svg" width="40" height="40" alt="Anthropic / Claude" title="Anthropic / Claude" /></td>
-  </tr>
-  <tr>
-    <th align="left">Web 与 TCP</th>
-    <td>HTTP · HTTPS · WebSocket · TCP</td>
-  </tr>
+  <tr><th align="left">SSH / SFTP</th><td><img src="docs/assets/integrations/ssh.svg" width="40" height="40" alt="SSH / WebSSH" title="SSH / WebSSH" />&nbsp;&nbsp; <img src="docs/assets/integrations/sftp.svg" width="40" height="40" alt="WebSFTP" title="WebSFTP" /></td></tr>
+  <tr><th align="left">Desktop</th><td><img src="docs/assets/integrations/windows.svg" width="40" height="40" alt="WebRDP" title="WebRDP" />&nbsp;&nbsp; <img src="docs/assets/integrations/vnc.png" width="40" height="40" alt="WebVNC" title="WebVNC" /></td></tr>
+  <tr><th align="left">SQL databases</th><td><img src="docs/assets/integrations/mysql.svg" width="40" height="40" alt="WebMySQL" title="WebMySQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/mariadb.svg" width="40" height="40" alt="WebMariaDB" title="WebMariaDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/postgresql.svg" width="40" height="40" alt="WebPostgreSQL" title="WebPostgreSQL" />&nbsp;&nbsp; <img src="docs/assets/integrations/sqlserver.svg" width="40" height="40" alt="WebSQLServer" title="WebSQLServer" />&nbsp;&nbsp; <img src="docs/assets/integrations/oracle.svg" width="40" height="40" alt="WebOracle" title="WebOracle" />&nbsp;&nbsp; <img src="docs/assets/integrations/clickhouse.svg" width="40" height="40" alt="WebClickHouse" title="WebClickHouse" /></td></tr>
+  <tr><th align="left">Data & search</th><td><img src="docs/assets/integrations/mongodb.svg" width="40" height="40" alt="WebMongoDB" title="WebMongoDB" />&nbsp;&nbsp; <img src="docs/assets/integrations/elasticsearch.svg" width="40" height="40" alt="WebElasticsearch" title="WebElasticsearch" />&nbsp;&nbsp; <img src="docs/assets/integrations/opensearch.svg" width="40" height="40" alt="WebOpenSearch" title="WebOpenSearch" /></td></tr>
+  <tr><th align="left">Cache</th><td><img src="docs/assets/integrations/redis.svg" width="40" height="40" alt="WebRedis" title="WebRedis" />&nbsp;&nbsp; <img src="docs/assets/integrations/memcached.svg" width="40" height="40" alt="WebMemcached" title="WebMemcached" /></td></tr>
+  <tr><th align="left">Storage</th><td><img src="docs/assets/integrations/s3.svg" width="40" height="40" alt="WebS3 (S3-compatible)" title="WebS3 (S3-compatible)" /></td></tr>
+  <tr><th align="left">LLM upstream protocols</th><td><img src="docs/assets/integrations/openai.svg" width="40" height="40" alt="OpenAI-compatible" title="OpenAI-compatible" />&nbsp;&nbsp; <img src="docs/assets/integrations/anthropic.svg" width="40" height="40" alt="Anthropic Messages" title="Anthropic Messages" />&nbsp;&nbsp; <img src="docs/assets/integrations/ollama.svg" width="40" height="40" alt="Ollama" title="Ollama" /></td></tr>
+  <tr><th align="left">Web / TCP</th><td><img src="docs/assets/integrations/web.svg" width="40" height="40" alt="HTTP / HTTPS / WebSocket" title="HTTP / HTTPS / WebSocket" />&nbsp;&nbsp; <img src="docs/assets/integrations/tcp.svg" width="40" height="40" alt="TCP" title="TCP" /></td></tr>
 </table>
 
-LLM 上游支持 **OpenAI 兼容**与 **Anthropic Messages**，对外统一提供 OpenAI 兼容接口。
+LLM 上游支持 **OpenAI-compatible**、**Anthropic Messages** 和 **Ollama**。对外提供 OpenAI-compatible 接口；Anthropic 上游另支持原生 Messages 接口。图标表示可访问的已有服务，不代表 Liaison 捆绑部署这些产品；数据库和桌面图标指浏览器工作台，不代表原生数据库、RDP 或 VNC 服务端监听。
 
 ## Agent 模型提供方
 

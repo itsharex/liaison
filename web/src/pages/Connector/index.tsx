@@ -1,6 +1,7 @@
 import { Button, Column, DangerConfirm, DataTable, Drawer, Field, Input, Modal, Notice, Pager, Select, StatusPill } from '@/components/ui';
 import { accessProtocolForType, accessTypesForApplication, isWebAccessType, type AccessType } from '@/constants/accessTypes';
 import { APPLICATION_TYPES } from '@/constants/applicationTypes';
+import {Switch} from '@/components/ui/complex';
 import { useI18n } from '@/i18n';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { history } from '@/lib/runtime';
@@ -186,6 +187,10 @@ const ConnectorPage: React.FC = () => {
   const createScannedAccess = async (event: FormEvent) => {
     event.preventDefault();
     if (!scanAccessApplication) return;
+    if(scanAccessType==='aiapi'){
+      history.push(`/proxy?category=llm&new_application=${encodeURIComponent(scanAccessApplication.id)}&new_name=${encodeURIComponent(scanAccessName.trim()||suggestedScanAccessName)}`);
+      setScanAccessApplication(undefined);return;
+    }
     const expose = !isWebAccessType(scanAccessType);
     setSaving(true);
     try {
@@ -223,7 +228,7 @@ const ConnectorPage: React.FC = () => {
     { key: 'name', title: tr('连接器名称', 'Connector'), width: 170, render: (row) => row.name },
     { key: 'device', title: tr('所在设备', 'Device'), width: 160, render: (row) => row.device?.name || '-' },
     { key: 'online', title: tr('在线状态', 'Online'), width: 90, render: (row) => <StatusPill tone={row.online === 1 ? 'success' : 'neutral'}>{row.online === 1 ? tr('在线', 'Online') : tr('离线', 'Offline')}</StatusPill> },
-    { key: 'runtime', title: tr('运行状态', 'Runtime'), width: 100, render: (row) => <button disabled={togglingIds.includes(row.id)} className={`liaison-switch${row.status === 1 ? ' is-on' : ''}`} onClick={() => void toggle(row)}><i /><span>{row.status === 1 ? tr('运行', 'On') : tr('停止', 'Off')}</span></button> },
+    { key: 'runtime', title: tr('运行状态', 'Runtime'), width: 100, render: (row) => <Switch checked={row.status === 1} disabled={togglingIds.includes(row.id)} aria-busy={togglingIds.includes(row.id)} aria-label={tr(`运行连接器：${row.name}`,`Run connector: ${row.name}`)} onChange={() => void toggle(row)}/> },
     { key: 'created', title: tr('创建时间', 'Created'), width: 150, render: (row) => row.created_at },
     { key: 'description', title: tr('描述', 'Description'), width: 180, render: (row) => row.description || '-' },
     { key: 'actions', title: tr('操作', 'Actions'), width: 175, render: (row) => <span className="liaison-table-actions"><button className="liaison-table-link" disabled={row.status !== 1 || row.online !== 1} onClick={() => void refreshScan(row)}>{tr('扫描应用', 'Scan')}</button><button className="liaison-table-link" onClick={() => { setEditRow(row); setCreateName(row.name); setCreateDescription(row.description || ''); }}>{tr('编辑', 'Edit')}</button><button className="liaison-table-link is-danger" onClick={() => setDeleteRow(row)}>{tr('删除', 'Delete')}</button></span> },

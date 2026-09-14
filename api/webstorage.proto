@@ -1,0 +1,29 @@
+syntax = "proto3";
+package liaison.webstorage;
+option go_package = "github.com/liaisonio/liaison/api/webstorage;webstorage";
+
+// Supplemental JSON command contract on authenticated WebData sessions for S3.
+// Session credentials: username=Access Key, password=write-only Secret Key,
+// schema=region (default us-east-1), database=optional bucket scope,
+// tls_mode=require|disable. No arbitrary endpoint or session token in commands.
+// The initial browser integration exposes read-only enumeration only.
+message Command {
+  // list_buckets | list_objects
+  string operation = 1;
+  string bucket = 2;
+  string prefix = 3;
+  string continuation_token = 4;
+}
+
+// Returned inside the existing execute envelope as rows and next_token.
+message Entry {
+  string kind = 1; // bucket | prefix | object
+  string key = 2; // exact name, never normalized as a filesystem path
+  int64 size = 3;
+  string modified_at = 4;
+  string etag = 5;
+}
+message Page {
+  repeated Entry rows = 1;
+  string next_token = 2;
+}

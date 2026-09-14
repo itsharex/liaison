@@ -1,0 +1,9 @@
+.liaison-overflow-tabs { position: relative; display: flex; align-items: center; gap: 8px; min-width: 0; width: 100%; border-bottom: 1px solid rgb(var(--line)); }
+.liaison-overflow-tabs nav { display: flex; gap: 8px; min-width: 0; flex: 1; overflow: hidden; }
+.liaison-overflow-tabs .liaison-overflow-tab { box-sizing: border-box; display: inline-block; flex: 0 0 auto; padding: 12px 10px; border: 0; border-bottom: 2px solid transparent; background: transparent; color: rgb(var(--muted)); font: inherit; font-size: 12px; font-weight: 560; white-space: nowrap; }
+.liaison-overflow-tabs button.liaison-overflow-tab { cursor: pointer; max-width: 100%; overflow: hidden; text-overflow: ellipsis; }
+.liaison-overflow-tabs button.liaison-overflow-tab[aria-pressed="true"] { color: rgb(var(--accent)); border-bottom-color: rgb(var(--accent)); }
+.liaison-overflow-tabs button.liaison-overflow-tab:hover { color: rgb(var(--ink)); }
+.liaison-overflow-tabs button.liaison-overflow-tab:focus-visible { outline: 2px solid rgb(var(--accent)); outline-offset: -3px; }
+.liaison-overflow-tabs .liaison-action-menu-trigger { flex: 0 0 32px; }
+.liaison-overflow-tabs-measure { position: absolute; display: flex; width: 0; visibility: hidden; pointer-events: none; height: 0; overflow: hidden; }

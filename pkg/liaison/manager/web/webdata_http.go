@@ -25,6 +25,7 @@ import (
 	"github.com/jackc/pgx/v5/stdlib"
 	"github.com/jumboframes/armorigo/log"
 	"github.com/liaisonio/liaison/pkg/liaison/manager/controlplane"
+	"github.com/liaisonio/liaison/pkg/liaison/manager/objectaccess"
 	"github.com/redis/go-redis/v9"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/bson/primitive"
@@ -102,6 +103,7 @@ func (req *createWebDataSessionRequest) UnmarshalJSON(data []byte) error {
 }
 
 type webDataCredentialRequest struct {
+	RememberPassword *bool  `json:"remember_password"`
 	ID               uint   `json:"id"`
 	Name             string `json:"name"`
 	Protocol         string `json:"protocol"`
@@ -136,6 +138,7 @@ type webDataExecuteResponse struct {
 	ElapsedMS    int64            `json:"elapsed_ms"`
 	Truncated    bool             `json:"truncated"`
 	Error        string           `json:"error,omitempty"`
+	NextToken    string           `json:"next_token,omitempty"`
 }
 
 type webDataMetadataNode struct {
@@ -203,6 +206,8 @@ type webDataSession struct {
 	searchClient     *http.Client
 	searchURL        string
 	searchPassword   string
+	cacheDial        func(context.Context) (net.Conn, error)
+	objectClient     *objectaccess.Client
 	mu               sync.Mutex
 	agentGeneration  uint64
 	agentUnregister  func()
@@ -344,6 +349,7 @@ func (s *webDataSessionStore) cleanupLocked(now time.Time) {
 }
 
 func (s *webDataSession) close() {
+	s.objectClient = nil
 	if s.searchClient != nil {
 		s.searchClient.CloseIdleConnections()
 		s.searchClient = nil
@@ -445,7 +451,7 @@ func (web *web) handleCreateWebDataSessionHTTP(w http.ResponseWriter, r *http.Re
 		applyWebDataCredentialDefaults(&req, credential)
 		savedCredential = true
 	} else if len(password) == 0 {
-		if credential, err := web.controlPlane.GetWebDataCredentialSecret(ctx, proxyID, req.Protocol, req.Username, req.Database, req.AuthDatabase); err == nil {
+		if credential, err := web.controlPlane.GetWebDataCredentialSecret(ctx, proxyID, req.Protocol, req.Username, req.Database, req.AuthDatabase); err == nil && credential.EncryptedPassword != "" {
 			password, err = web.decryptWebSSHPassword(credential.EncryptedPassword, credential.Nonce)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]any{"code": http.StatusInternalServerError, "message": "已保存密码无法解密，请清除后重新保存"})
@@ -548,8 +554,10 @@ func (web *web) handleCreateWebDataSessionHTTP(w http.ResponseWriter, r *http.Re
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"code": http.StatusInternalServerError, "message": "failed to create session"})
 		return
 	}
-	if err := web.registerWebDataAgentSession(created); err != nil {
-		log.Warnf("webdata agent session registration failed: proxy_id=%d user_id=%d protocol=%s err=%v", proxyID, user.ID, req.Protocol, err)
+	if created.protocol != "s3" {
+		if err := web.registerWebDataAgentSession(created); err != nil {
+			log.Warnf("webdata agent session registration failed: proxy_id=%d user_id=%d protocol=%s err=%v", proxyID, user.ID, req.Protocol, err)
+		}
 	}
 	web.recordWebDataAudit(r, target, user.ID, "open_session", req.Protocol, webDataAuditDatabase(&req), "", true, 0, elapsed, "")
 	writeJSON(w, http.StatusOK, map[string]any{
@@ -613,7 +621,7 @@ func (web *web) handleTestWebDataConnectionHTTP(w http.ResponseWriter, r *http.R
 		}
 		applyWebDataCredentialDefaults(&req, credential)
 	} else if len(password) == 0 {
-		if credential, err := web.controlPlane.GetWebDataCredentialSecret(ctx, proxyID, req.Protocol, req.Username, req.Database, req.AuthDatabase); err == nil {
+		if credential, err := web.controlPlane.GetWebDataCredentialSecret(ctx, proxyID, req.Protocol, req.Username, req.Database, req.AuthDatabase); err == nil && credential.EncryptedPassword != "" {
 			password, err = web.decryptWebSSHPassword(credential.EncryptedPassword, credential.Nonce)
 			if err != nil {
 				writeJSON(w, http.StatusInternalServerError, map[string]any{"code": http.StatusInternalServerError, "message": "已保存密码无法解密，请清除后重新保存"})
@@ -727,14 +735,18 @@ func (web *web) handleWebDataCredentialHTTP(w http.ResponseWriter, r *http.Reque
 
 	password := []byte(req.Password)
 	passwordChanged := req.ID == 0 || len(password) > 0
-	if passwordChanged && web.credentialKey == nil {
+	remember := req.RememberPassword == nil || *req.RememberPassword
+	if !remember {
+		passwordChanged = true
+	}
+	if remember && passwordChanged && web.credentialKey == nil {
 		zeroBytes(password)
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"code": http.StatusInternalServerError, "message": "WebData 凭据加密密钥未配置"})
 		return
 	}
 
 	var encryptedPassword, nonce string
-	if passwordChanged {
+	if remember && passwordChanged {
 		encryptedPassword, nonce, err = web.encryptWebSSHPassword(password)
 		zeroBytes(password)
 		if err != nil {
@@ -742,6 +754,7 @@ func (web *web) handleWebDataCredentialHTTP(w http.ResponseWriter, r *http.Reque
 			return
 		}
 	}
+	zeroBytes(password)
 	credential, err := web.controlPlane.SaveWebDataCredentialProfile(ctx, proxyID, &controlplane.WebDataCredentialProfile{
 		ID:                req.ID,
 		Name:              req.Name,
@@ -875,7 +888,7 @@ func (web *web) handleWebDataExecuteHTTP(w http.ResponseWriter, r *http.Request)
 			Protocol:         session.protocol,
 			Action:           "execute",
 			Database:         webDataAuditSessionDatabase(session),
-			StatementPreview: webDataStatementPreview(statement),
+			StatementPreview: webDataAuditPreview(session.protocol, statement),
 			StatementSHA256:  webDataStatementHash(statement),
 			Success:          execErr == nil,
 			AffectedRows:     result.AffectedRows,
@@ -1021,6 +1034,10 @@ func (web *web) handleWebDataObjectHTTP(w http.ResponseWriter, r *http.Request) 
 
 func (web *web) openWebDataClient(ctx context.Context, session *webDataSession, password string) error {
 	switch session.protocol {
+	case "s3":
+		return web.openWebDataS3(ctx, session, password)
+	case "memcached":
+		return web.openWebDataMemcached(ctx, session, password)
 	case "elasticsearch", "opensearch":
 		return web.openWebDataSearch(ctx, session, password)
 	case "oracle":
@@ -1267,6 +1284,10 @@ func (web *web) ensureWebDataSessionActive(ctx context.Context, session *webData
 
 func (s *webDataSession) execute(ctx context.Context, statement string) (*webDataExecuteResponse, error) {
 	switch s.protocol {
+	case "s3":
+		return s.executeS3(ctx, statement)
+	case "memcached":
+		return s.executeMemcached(ctx, statement)
 	case "elasticsearch", "opensearch":
 		return s.executeSearch(ctx, statement)
 	case "oracle":
@@ -1511,6 +1532,8 @@ func mongoCommandInt64(command bson.D, key string, fallback int64) int64 {
 
 func (s *webDataSession) metadata(ctx context.Context) ([]webDataMetadataNode, error) {
 	switch s.protocol {
+	case "memcached":
+		return []webDataMetadataNode{}, nil
 	case "elasticsearch", "opensearch":
 		return s.searchMetadata(ctx)
 	case "oracle":
@@ -1534,6 +1557,8 @@ func (s *webDataSession) metadata(ctx context.Context) ([]webDataMetadataNode, e
 
 func (s *webDataSession) metadataChildren(ctx context.Context, req webDataMetadataRequest) ([]webDataMetadataNode, error) {
 	switch s.protocol {
+	case "memcached":
+		return []webDataMetadataNode{}, nil
 	case "elasticsearch", "opensearch":
 		return nil, nil
 	case "oracle":
@@ -2422,6 +2447,10 @@ func zeroBytes(value []byte) {
 
 func webDataCapabilities(protocol string) []string {
 	switch protocol {
+	case "s3":
+		return []string{"execute", "list_buckets", "list_objects"}
+	case "memcached":
+		return []string{"execute", "json_command"}
 	case "elasticsearch", "opensearch":
 		return []string{"execute", "metadata", "object_detail", "json_command", "index_preview"}
 	case "redis":
@@ -2455,6 +2484,11 @@ func webDataShouldAuditExecute(protocol, statement string) bool {
 
 func webDataExecuteIsQuery(protocol, statement string) bool {
 	switch normalizeWebDataProtocol(protocol) {
+	case "s3":
+		_, err := parseStorageCommand(statement)
+		return err == nil
+	case "memcached":
+		return memcachedIsQuery(statement)
 	case "elasticsearch", "opensearch":
 		return searchIsQuery(statement)
 	case "clickhouse", "sqlserver", "oracle":
@@ -2754,7 +2788,7 @@ func (web *web) recordWebDataAudit(r *http.Request, target *controlplane.WebData
 		Protocol:         protocol,
 		Action:           action,
 		Database:         strings.TrimSpace(database),
-		StatementPreview: webDataStatementPreview(statement),
+		StatementPreview: webDataAuditPreview(protocol, statement),
 		StatementSHA256:  webDataStatementHash(statement),
 		Success:          success,
 		AffectedRows:     affectedRows,
