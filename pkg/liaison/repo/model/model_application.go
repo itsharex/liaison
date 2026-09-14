@@ -11,7 +11,7 @@ import (
 type ApplicationType string
 
 const (
-	ApplicationTypeLLM ApplicationType = "llm"
+	ApplicationTypeLLM           ApplicationType = "llm"
 	ApplicationTypeTCP           ApplicationType = "tcp"  // TCP 应用
 	ApplicationTypeHTTP          ApplicationType = "http" // HTTP 应用
 	ApplicationTypeSSH           ApplicationType = "ssh"  // SSH 应用
@@ -26,6 +26,8 @@ const (
 	ApplicationTypeOpenSearch    ApplicationType = "opensearch"
 	ApplicationTypePostgreSQL    ApplicationType = "postgresql"
 	ApplicationTypeRedis         ApplicationType = "redis"
+	ApplicationTypeMemcached     ApplicationType = "memcached"
+	ApplicationTypeS3            ApplicationType = "s3"
 	ApplicationTypeMongoDB       ApplicationType = "mongodb"
 	ApplicationTypeDatabase      ApplicationType = "database"
 )

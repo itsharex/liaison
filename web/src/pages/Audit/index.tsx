@@ -1,5 +1,7 @@
 import { Button, Column, DataTable, DateRangeField, Notice, Pager, StatusPill, Timestamp } from '@/components/ui';
 import { accessTypeLabel } from '@/constants/accessTypes';
+import { accessTabLabel } from '@/constants/accessGroups';
+import OverflowTabs from '@/components/ui/OverflowTabs';
 import { useI18n } from '@/i18n';
 import { useDebouncedValue } from '@/hooks/useDebouncedValue';
 import { useSearchParams } from '@/lib/runtime';
@@ -9,10 +11,11 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import './index.less';
 
 const pageSize = 10;
-const auditProtocols = ['ssh', 'webssh', 'rdp', 'vnc', 'mysql', 'mariadb', 'sqlserver', 'oracle', 'clickhouse', 'elasticsearch', 'opensearch', 'postgresql', 'redis', 'mongodb'] as const;
-type AuditProtocol = typeof auditProtocols[number];
+const auditProtocols = ['ssh', 'webssh', 'websftp', 'rdp', 'vnc', 'mysql', 'mariadb', 'sqlserver', 'oracle', 'clickhouse', 'elasticsearch', 'opensearch', 'postgresql', 'redis', 'memcached', 'mongodb'] as const;
+type AuditProtocol = typeof auditProtocols[number] | '';
 const routeProtocolAliases: Record<string, AuditProtocol> = {
   webssh: 'webssh',
+  websftp: 'websftp',
   webrdp: 'rdp',
   webvnc: 'vnc',
   webmysql: 'mysql',
@@ -24,22 +27,29 @@ const routeProtocolAliases: Record<string, AuditProtocol> = {
   webopensearch: 'opensearch',
   webpostgresql: 'postgresql',
   webredis: 'redis',
+  webmemcached: 'memcached',
   webmongodb: 'mongodb',
 };
-const emptyFilters = { start: '', end: '', keyword: '', proxy_id: '', protocol: 'ssh' as AuditProtocol, action: '', success: '' };
+const emptyFilters = { start: '', end: '', keyword: '', proxy_id: '', protocol: '' as AuditProtocol, action: '', success: '' };
 
 const AuditPage: React.FC = () => {
   const { tr } = useI18n();
-  const [routeSearch] = useSearchParams();
+  const [routeSearch, setRouteSearch] = useSearchParams();
   const rawRouteProtocol = (routeSearch.get('protocol') || '').toLowerCase().replace(/[\s_-]/g, '');
   const routeProtocol = routeProtocolAliases[rawRouteProtocol] || rawRouteProtocol;
-  const initialProtocol = auditProtocols.includes(routeProtocol as AuditProtocol) ? routeProtocol as AuditProtocol : 'ssh';
+  const initialProtocol: AuditProtocol = auditProtocols.includes(routeProtocol as typeof auditProtocols[number]) ? routeProtocol as AuditProtocol : '';
   const [rows, setRows] = useState<API.WebDataAuditItem[]>([]);
   const [proxies, setProxies] = useState<API.Proxy[]>([]);
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(false);
-  const [filters, setFilters] = useState({ ...emptyFilters, proxy_id: routeSearch.get('proxy_id') || '', protocol: initialProtocol });
+  const filters = { ...emptyFilters, start: routeSearch.get('start') || '', end: routeSearch.get('end') || '', keyword: routeSearch.get('keyword') || '', proxy_id: routeSearch.get('proxy_id') || '', protocol: initialProtocol, action: routeSearch.get('action') || '', success: routeSearch.get('success') || '' };
+  const setFilters = (next: typeof filters | ((previous: typeof filters) => typeof filters)) => {
+    const value = typeof next === 'function' ? next(filters) : next;
+    const search = new URLSearchParams(routeSearch);
+    for (const key of Object.keys(emptyFilters) as (keyof typeof emptyFilters)[]) { if (value[key]) search.set(key, value[key]); else search.delete(key); }
+    setRouteSearch(search, {replace:true});
+  };
   const debouncedKeyword = useDebouncedValue(filters.keyword);
   const applied = useMemo(() => ({ start: filters.start, end: filters.end, keyword: debouncedKeyword, proxy_id: filters.proxy_id, protocol: filters.protocol, action: filters.action, success: filters.success }), [debouncedKeyword, filters.action, filters.end, filters.protocol, filters.proxy_id, filters.start, filters.success]);
   const [notice, setNotice] = useState<string>();
@@ -57,9 +67,11 @@ const AuditPage: React.FC = () => {
   useEffect(() => { void load(); }, [load]);
 
   const detail = (row: API.WebDataAuditItem, key: string) => row.details?.[key];
-  const isSSHProtocol = applied.protocol === 'ssh' || applied.protocol === 'webssh';
+  const isSSHProtocol = applied.protocol === 'ssh' || applied.protocol === 'webssh' || applied.protocol === 'websftp';
   const isDesktopProtocol = applied.protocol === 'rdp' || applied.protocol === 'vnc';
-  const protocolLabel = (protocol: AuditProtocol) => {
+  const protocolLabel = (protocol: string) => {
+    if (!protocol) return tr('全部', 'All');
+    if (protocol === 'memcached') return 'WebMemcached';
     if (protocol === 'elasticsearch' || protocol === 'opensearch') return `Web ${accessTypeLabel(protocol)}`;
     if (protocol === 'rdp' || protocol === 'vnc' || (protocol === 'mysql' || protocol === 'mariadb' || protocol === 'sqlserver' || protocol === 'oracle' || protocol === 'clickhouse') || protocol === 'postgresql' || protocol === 'redis' || protocol === 'mongodb') return `Web ${accessTypeLabel(protocol)}`;
     return accessTypeLabel(protocol);
@@ -88,6 +100,15 @@ const AuditPage: React.FC = () => {
     return <StatusPill tone="success">{tr('成功', 'Success')}</StatusPill>;
   };
   const columns = useMemo<Column<API.WebDataAuditItem>[]>(() => {
+    if (!applied.protocol) return [
+      {key:'time',title:tr('时间','Time'),width:156,render:row=><Timestamp value={row.created_at}/>},
+      {key:'protocol',title:tr('协议','Protocol'),width:130,render:row=>accessTabLabel(protocolLabel(row.protocol))},
+      {key:'user',title:tr('用户','User'),width:150,render:row=>row.user_email||`#${row.user_id}`},
+      {key:'action',title:tr('事件','Event'),width:112,render:row=>row.action==='execute'?tr('执行','Execute'):actionLabel(row.action)},
+      {key:'statement',title:tr('操作内容','Activity'),width:240,render:row=><code className="audit-native-statement" title={row.statement_preview||''}>{row.statement_preview||'—'}</code>},
+      {key:'access',title:tr('访问','Access'),width:140,render:row=>referenceCell(row.proxy_name,row.proxy_id)},
+      {key:'status',title:tr('状态','Status'),width:86,render:row=>row.success?<StatusPill tone="neutral">{tr('已记录','Recorded')}</StatusPill>:<StatusPill tone="danger">{tr('失败','Failed')}</StatusPill>},
+    ];
     if (isSSHProtocol) return [
       { key: 'time', title: tr('时间', 'Time'), width: 156, render: (row) => <Timestamp value={row.created_at} /> },
       { key: 'identity', title: tr('SSH 用户', 'SSH user'), width: 132, render: (row) => <span className="audit-ssh-user" title={`${String(detail(row, 'ssh_user') || '-')}${sshAuthLabel(row) ? `（${sshAuthLabel(row)}）` : ''}`}>{String(detail(row, 'ssh_user') || '-')}{sshAuthLabel(row) ? `（${sshAuthLabel(row)}）` : ''}</span> },
@@ -124,16 +145,17 @@ const AuditPage: React.FC = () => {
   }, [applied.protocol, isDesktopProtocol, isSSHProtocol, tr]);
 
   const selectProtocol = (protocol: AuditProtocol) => {
-    setFilters((value) => ({ ...value, protocol, action: '' }));
+    const search = new URLSearchParams(routeSearch);
+    if (protocol) search.set('protocol', protocol); else search.delete('protocol');
+    search.delete('action');
+    setRouteSearch(search);
     setPage(1);
   };
   const actionOptions = isSSHProtocol ? ['execute', 'open_session', 'close_session', 'save_credential', 'delete_credential'] : isDesktopProtocol ? ['open_session', 'close_session', 'save_credential', 'delete_credential'] : ['execute', 'open_session', 'close_session', 'test_connection', 'save_credential', 'delete_credential'];
 
   return <div className="liaison-page-stack audit-native-page">
     {notice ? <Notice tone="danger">{notice}</Notice> : null}
-    <nav className="audit-protocol-tabs" aria-label={tr('按协议查看审计日志', 'Audit logs by protocol')}>
-      {auditProtocols.map((protocol) => <button key={protocol} type="button" role="tab" aria-selected={applied.protocol === protocol} className={applied.protocol === protocol ? 'is-active' : ''} onClick={() => selectProtocol(protocol)}>{protocolLabel(protocol)}</button>)}
-    </nav>
+    <OverflowTabs label={tr('审计协议','Audit protocols')} value={applied.protocol} onChange={value=>selectProtocol(value as AuditProtocol)} items={[{value:'',label:tr('全部','All')},...auditProtocols.map(protocol=>({value:protocol,label:accessTabLabel(protocolLabel(protocol))}))]}/>
     <div className="liaison-filter-bar audit-native-filter">
       <DateRangeField className="audit-native-time" label={tr('操作时间', 'Time')} start={filters.start} end={filters.end} startPlaceholder={tr('开始日期', 'Start date')} endPlaceholder={tr('结束日期', 'End date')} onStartChange={(start) => { setFilters((value) => ({ ...value, start })); setPage(1); }} onEndChange={(end) => { setFilters((value) => ({ ...value, end })); setPage(1); }} />
       <label className="liaison-compound"><span>{tr('关键词', 'Keyword')}</span><input value={filters.keyword} onChange={(event) => { setFilters((value) => ({ ...value, keyword: event.target.value })); setPage(1); }} placeholder={isSSHProtocol ? tr('命令或哈希', 'Command or hash') : tr('语句或哈希', 'Statement or hash')} /></label>

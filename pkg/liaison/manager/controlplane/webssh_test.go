@@ -6,9 +6,131 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/liaisonio/liaison/pkg/liaison/manager/iam"
 	"github.com/liaisonio/liaison/pkg/liaison/repo/model"
 	"gorm.io/gorm"
 )
+
+func TestWebSFTPTargetRequiresFilePermission(t *testing.T) {
+	cp, r := newTestControlPlane(t)
+	defer r.Close()
+	_, app := createTestEdgeApplication(t, r)
+	app.ApplicationType = model.ApplicationTypeSSH
+	if err := r.UpdateApplication(app); err != nil {
+		t.Fatal(err)
+	}
+	p := &model.Proxy{Name: "sftp", ApplicationID: app.ID, AccessProtocol: model.AccessProtocolWebSFTP, Status: model.ProxyStatusRunning}
+	if err := r.CreateProxy(p); err != nil {
+		t.Fatal(err)
+	}
+	grantTestResourceToUsers(t, r, resourceAccess, p.ID, 1)
+	ctx := context.WithValue(context.Background(), "user_id", uint(1))
+	cp.authorizeFeature = nil
+	if _, err := cp.GetWebSSHTarget(ctx, p.ID); !errors.Is(err, iam.ErrForbidden) {
+		t.Fatalf("missing authorizer must deny, got %v", err)
+	}
+	cp.authorizeFeature = func(context.Context, string) error { return iam.ErrForbidden }
+	if _, err := cp.GetWebSSHTarget(ctx, p.ID); !errors.Is(err, iam.ErrForbidden) {
+		t.Fatalf("disabled feature must deny, got %v", err)
+	}
+	cp.authorizeFeature = func(_ context.Context, feature string) error {
+		if feature != iam.FeatureFilesRead {
+			t.Fatalf("wrong feature %q", feature)
+		}
+		return nil
+	}
+	target, err := cp.GetWebSSHTarget(ctx, p.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if target.AccessProtocol != model.AccessProtocolWebSFTP {
+		t.Fatal("access protocol lost")
+	}
+	other := context.WithValue(context.Background(), "user_id", uint(2))
+	if _, err := cp.GetWebSSHTarget(other, p.ID); err == nil {
+		t.Fatal("another user must not access this target")
+	}
+}
+
+func TestWebSFTPConnectionProfiles(t *testing.T) {
+	cp, r := newTestControlPlane(t)
+	defer r.Close()
+	_, app := createTestEdgeApplication(t, r)
+	app.ApplicationType = model.ApplicationTypeSSH
+	if err := r.UpdateApplication(app); err != nil {
+		t.Fatal(err)
+	}
+	p := &model.Proxy{Name: "files", ApplicationID: app.ID, AccessProtocol: model.AccessProtocolWebSFTP, Status: model.ProxyStatusRunning}
+	if err := r.CreateProxy(p); err != nil {
+		t.Fatal(err)
+	}
+	grantTestResourceToUsers(t, r, resourceAccess, p.ID, 1, 2)
+	cp.authorizeFeature = func(context.Context, string) error { return nil }
+	ctx := context.WithValue(context.Background(), "user_id", uint(1))
+	save := func(name, secret, nonce string, remember, create bool) error {
+		return cp.SaveWebSFTPConnection(ctx, p.ID, name, "demo", secret, nonce, remember, create)
+	}
+	if err := save("Files", "", "", false, true); err != nil {
+		t.Fatal(err)
+	}
+	rows, err := cp.GetWebSSHCredentials(ctx, p.ID)
+	if err != nil || len(rows) != 1 || rows[0].Saved || rows[0].Name != "Files" {
+		t.Fatal("unsaved profile missing", err)
+	}
+	if err := save("Duplicate", "", "", false, true); err == nil {
+		t.Fatal("duplicate must not overwrite")
+	}
+	if err := save("Files", "", "", true, false); err == nil {
+		t.Fatal("cannot retain nonexistent password")
+	}
+	if err := save("Files", "encrypted-fixture", "nonce-fixture", true, false); err != nil {
+		t.Fatal(err)
+	}
+	if err := save("Renamed", "", "", true, false); err != nil {
+		t.Fatal(err)
+	}
+	secret, err := cp.GetWebSSHCredentialSecret(ctx, p.ID, "demo")
+	if err != nil || secret.EncryptedPassword != "encrypted-fixture" {
+		t.Fatal("rename lost secret", err)
+	}
+	other := context.WithValue(context.Background(), "user_id", uint(2))
+	rows, err = cp.GetWebSSHCredentials(other, p.ID)
+	if err != nil || len(rows) != 0 {
+		t.Fatal("profile leaked", err)
+	}
+	if err := cp.SaveWebSFTPConnection(other, p.ID, "Other", "demo", "", "", false, false); err == nil {
+		t.Fatal("other user edited profile")
+	}
+	if err := save("Renamed", "", "", false, false); err != nil {
+		t.Fatal(err)
+	}
+	secret, err = cp.GetWebSSHCredentialSecret(ctx, p.ID, "demo")
+	if err != nil || secret.EncryptedPassword != "" || secret.Nonce != "" {
+		t.Fatal("clear failed", err)
+	}
+	cp.authorizeFeature = func(context.Context, string) error { return iam.ErrForbidden }
+	if err := save("Denied", "", "", false, false); !errors.Is(err, iam.ErrForbidden) {
+		t.Fatal("feature gate bypassed", err)
+	}
+	// The access creation form can save an SSH profile without opening a PTY.
+	cp.authorizeFeature = func(context.Context, string) error { return nil }
+	sshProxy := &model.Proxy{Name: "shell", ApplicationID: app.ID, AccessProtocol: model.AccessProtocolWebSSH, Status: model.ProxyStatusRunning}
+	if err := r.CreateProxy(sshProxy); err != nil {
+		t.Fatal(err)
+	}
+	grantTestResourceToUsers(t, r, resourceAccess, sshProxy.ID, 1, 2)
+	if err := cp.SaveWebSFTPConnection(ctx, sshProxy.ID, "Shell", "demo", "encrypted-fixture", "nonce-fixture", true, true); err != nil {
+		t.Fatal(err)
+	}
+	rows, err = cp.GetWebSSHCredentials(ctx, sshProxy.ID)
+	if err != nil || len(rows) != 1 || !rows[0].Saved {
+		t.Fatal("SSH profile missing", err)
+	}
+	rows, err = cp.GetWebSSHCredentials(other, sshProxy.ID)
+	if err != nil || len(rows) != 0 {
+		t.Fatal("SSH profile leaked", err)
+	}
+}
 
 func TestWebSSHTargetRequiresSSHApplication(t *testing.T) {
 	cp, r := newTestControlPlane(t)

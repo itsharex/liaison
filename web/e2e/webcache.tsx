@@ -1,0 +1,10 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {MemoryRouter, Routes, Route} from 'react-router-dom';
+import WebData from '../src/pages/WebData';
+import {RuntimeBridge} from '../src/lib/runtime';
+import {applyThemeOnBoot} from '../src/store/theme';
+import '../src/styles/index.css';
+if (!import.meta.env.DEV) throw Error('Development fixture only');
+applyThemeOnBoot();
+createRoot(document.getElementById('root')!).render(<MemoryRouter initialEntries={['/webdata/101/connections/7']}><RuntimeBridge/><main style={{padding:24}}><Routes><Route path="/webdata/:proxyId/connections/:credentialId/*" element={<WebData/>}/></Routes></main></MemoryRouter>);

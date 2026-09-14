@@ -1,6 +1,7 @@
 package dao
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"time"
@@ -8,6 +9,30 @@ import (
 	"github.com/liaisonio/liaison/pkg/liaison/repo/model"
 	"gorm.io/gorm"
 )
+
+func (d *dao) SaveWebSFTPConnectionProfile(ctx context.Context, c *model.WebSSHCredential, remember, create bool) error {
+	if create {
+		if remember && (c.EncryptedPassword == "" || c.Nonce == "") {
+			return errors.New("password required")
+		}
+		return d.getDB().WithContext(ctx).Create(c).Error
+	}
+	updates := map[string]any{"name": c.Name}
+	query := d.getDB().WithContext(ctx).Model(&model.WebSSHCredential{}).Where("proxy_id = ? AND user_id = ? AND username = ?", c.ProxyID, c.UserID, c.Username)
+	if remember && c.EncryptedPassword == "" {
+		query = query.Where("encrypted_password <> '' AND nonce <> ''")
+	} else {
+		updates["encrypted_password"], updates["nonce"] = c.EncryptedPassword, c.Nonce
+	}
+	result := query.Updates(updates)
+	if result.Error != nil {
+		return result.Error
+	}
+	if result.RowsAffected == 0 {
+		return gorm.ErrRecordNotFound
+	}
+	return nil
+}
 
 func (d *dao) ListWebSSHCredentialsByProxyAndUser(proxyID, userID uint) ([]*model.WebSSHCredential, error) {
 	var credentials []*model.WebSSHCredential
@@ -47,6 +72,9 @@ func (d *dao) UpsertWebSSHCredential(credential *model.WebSSHCredential) error {
 		return err
 	}
 	existing.Username = credential.Username
+	if credential.Name != "" {
+		existing.Name = credential.Name
+	}
 	existing.EncryptedPassword = credential.EncryptedPassword
 	existing.Nonce = credential.Nonce
 	return d.getDB().Save(&existing).Error

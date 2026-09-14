@@ -40,6 +40,7 @@ type web struct {
 	controlPlane    controlplane.ControlPlane
 	iamService      *iam.IAMService
 	webSSH          *webSSHSessionStore
+	files           *fileSessions
 	webDesktop      *webDesktopSessionStore
 	webData         *webDataSessionStore
 	accessSessions  *accesssession.Registry
@@ -82,6 +83,7 @@ func NewWebServerWithListener(conf *config.Configuration, controlPlane controlpl
 		controlPlane:    controlPlane,
 		iamService:      iamService,
 		webSSH:          newWebSSHSessionStore(),
+		files:           newFileSessions(),
 		webDesktop:      newWebDesktopSessionStore(),
 		webData:         newWebDataSessionStore(),
 		accessSessions:  accessSessions,
@@ -146,6 +148,9 @@ func NewWebServerWithListener(conf *config.Configuration, controlPlane controlpl
 	srv.HandleFunc("/api/v1/proxies/{id}/firewall", web.handleFirewallHTTP)
 
 	// WebSSH
+	srv.HandleFunc("/api/v1/webssh/proxies/{id}/files/sessions", web.handleCreateFileSessionHTTP)
+	srv.HandleFunc("/api/v1/webssh/files/sessions/{session}", web.handleFileOperationHTTP)
+	srv.HandleFunc("/api/v1/webssh/files/sessions/{session}/{operation}", web.handleFileOperationHTTP)
 	srv.HandleFunc("/api/v1/webssh/proxies/{id}", web.handleWebSSHTargetHTTP)
 	srv.HandleFunc("/api/v1/webssh/proxies/{id}/session", web.handleCreateWebSSHSessionHTTP)
 	srv.HandleFunc("/api/v1/webssh/proxies/{id}/credential", web.handleWebSSHCredentialHTTP)
@@ -311,6 +316,9 @@ func (web *web) Serve() error {
 }
 
 func (web *web) Close() error {
+	if web.files != nil {
+		web.files.close()
+	}
 	return web.app.Stop()
 }
 

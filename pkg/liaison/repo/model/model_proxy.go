@@ -13,7 +13,7 @@ const (
 
 const (
 	AccessProtocolTCP        AccessProtocol = "tcp"
-	AccessProtocolAI        AccessProtocol = "aiapi"
+	AccessProtocolAI         AccessProtocol = "aiapi"
 	AccessProtocolHTTP       AccessProtocol = "http"
 	AccessProtocolSSH        AccessProtocol = "ssh"
 	AccessProtocolRDP        AccessProtocol = "rdp"
@@ -23,6 +23,7 @@ const (
 	AccessProtocolRedis      AccessProtocol = "redis"
 	AccessProtocolMongoDB    AccessProtocol = "mongodb"
 	AccessProtocolWebSSH     AccessProtocol = "webssh"
+	AccessProtocolWebSFTP    AccessProtocol = "websftp"
 	AccessProtocolWeb        AccessProtocol = "web"
 )
 

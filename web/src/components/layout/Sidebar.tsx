@@ -1,16 +1,7 @@
-import {
-  ACCESS_TYPES,
-  ACCESS_TYPES_CHANGED_EVENT,
-  getProxyAccessType,
-  isSupportedAccessType,
-} from '@/constants/accessTypes';
-import {
-  APPLICATION_TYPES_CHANGED_EVENT,
-} from '@/constants/applicationTypes';
+import {ACCESS_GROUPS,accessGroup} from '@/constants/accessGroups';
 import { AuditLogIcon } from '@/components/icons/AuditLogIcon';
 import { ApplicationIcon } from '@/components/icons/ApplicationIcon';
 import { useI18n } from '@/i18n';
-import { getProxyList } from '@/services/api';
 import { useUi } from '@/store/ui';
 import { useFeature } from '@/store/permissions';
 import type { LucideIcon } from 'lucide-react';
@@ -27,7 +18,7 @@ import {
   Settings,
   Users,
 } from 'lucide-react';
-import { useCallback, useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Link, NavLink, useLocation } from 'react-router-dom';
 
 type NavItem = {
@@ -46,9 +37,6 @@ export function Sidebar() {
   const location = useLocation();
   const [accessOpen, setAccessOpen] = useState(location.pathname === '/proxy');
   const [logsOpen, setLogsOpen] = useState(location.pathname.startsWith('/logs/'));
-  const [availableAccessTypes, setAvailableAccessTypes] = useState<Set<string>>(
-    new Set(),
-  );
 
   const primary: NavItem[] = [
     { to: '/', label: tr('首页', 'Home'), icon: House, end: true },
@@ -61,39 +49,7 @@ export function Sidebar() {
     { to: '/settings', label: tr('设置', 'Settings'), icon: Settings },
   ];
 
-  const accessType = new URLSearchParams(location.search).get('access_type');
-  const activeAccessType = isSupportedAccessType(accessType) ? accessType : undefined;
-  const visibleAccessTypes = ACCESS_TYPES.filter((type) =>
-    availableAccessTypes.has(type.value),
-  );
-
-  const loadAccessTypes = useCallback(async () => {
-    try {
-      const response = await getProxyList({ page_size: 1000 });
-      const types = new Set<string>();
-      for (const proxy of response.data?.proxies || []) {
-        const type = getProxyAccessType(proxy);
-        if (type) types.add(type);
-      }
-      setAvailableAccessTypes(types);
-    } catch {
-      // Keep the last successful menu snapshot when the control plane is unavailable.
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadAccessTypes();
-  }, [loadAccessTypes, location.pathname]);
-
-  useEffect(() => {
-    const refresh = () => void loadAccessTypes();
-    window.addEventListener(ACCESS_TYPES_CHANGED_EVENT, refresh);
-    window.addEventListener(APPLICATION_TYPES_CHANGED_EVENT, refresh);
-    return () => {
-      window.removeEventListener(ACCESS_TYPES_CHANGED_EVENT, refresh);
-      window.removeEventListener(APPLICATION_TYPES_CHANGED_EVENT, refresh);
-    };
-  }, [loadAccessTypes]);
+  const activeAccessType = accessGroup(new URLSearchParams(location.search))?.value;
 
   useEffect(() => {
     if (location.pathname === '/proxy') {
@@ -135,7 +91,7 @@ export function Sidebar() {
       <nav className="liaison-nav">
         <div className="liaison-nav-primary">
           {renderItems(primary.slice(0, 2))}
-          {collapsed || visibleAccessTypes.length === 0 ? (
+          {collapsed ? (
             <NavLink
               to="/proxy"
               title={tr('访问', 'Access')}
@@ -156,7 +112,6 @@ export function Sidebar() {
                 type="button"
                 className="liaison-nav-item liaison-nav-toggle"
                 onClick={() => {
-                  if (!accessOpen) void loadAccessTypes();
                   setAccessOpen((open) => !open);
                 }}
                 aria-expanded={accessOpen}
@@ -182,10 +137,10 @@ export function Sidebar() {
                   >
                     <span>{tr('全部访问', 'All access')}</span>
                   </Link>
-                  {visibleAccessTypes.map((type) => (
+                  {ACCESS_GROUPS.map((type) => (
                     <Link
                       key={type.value}
-                      to={`/proxy?access_type=${type.value}`}
+                      to={`/proxy?category=${type.value}`}
                       className={`liaison-nav-child${
                         location.pathname === '/proxy' &&
                         activeAccessType === type.value

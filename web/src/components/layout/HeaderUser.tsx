@@ -6,12 +6,12 @@ import {
   useAvatarStore,
 } from '@/store/avatar';
 import { useSession } from '@/store/session';
-import { ChevronDown, LogOut, UserRound } from 'lucide-react';
+import { Check, ChevronDown, Globe, LogOut, UserRound } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 
 export function HeaderUser() {
-  const { tr } = useI18n();
+  const { tr, locale, setLocale } = useI18n();
   const user = useSession((state) => state.initialState.currentUser);
   const identity = getAvatarIdentity(user);
   const localAvatar = useAvatarStore((state) => state.avatars[identity]);
@@ -82,6 +82,8 @@ export function HeaderUser() {
             <UserRound size={15} />
             <span>{tr('用户管理', 'Users')}</span>
           </Link>
+          <div className="liaison-header-user-divider" />
+          {(['en-US', 'zh-CN'] as const).map(value => <button key={value} type="button" aria-pressed={locale === value} onClick={() => setLocale(value)}><Globe size={15} /><span>{value === 'en-US' ? 'English' : '简体中文'}</span>{locale === value && <Check size={14} />}</button>)}
           <div className="liaison-header-user-divider" />
           <button type="button" className="is-danger" onClick={handleLogout}>
             <LogOut size={15} />

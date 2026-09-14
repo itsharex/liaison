@@ -1,4 +1,5 @@
 import { LiaisonLogo } from '@/components/LiaisonLogo';
+import {accessSource,useAccessBack} from '@/hooks/useAccessBack';
 import { useI18n } from '@/i18n';
 import { getCurrentUser } from '@/services/api';
 import { useSession } from '@/store/session';
@@ -88,7 +89,7 @@ export function AppLayout() {
     },
   };
   const isAIAccessPage = /^\/ai\/\d+\/?$/.test(location.pathname);
-  const page = isAIAccessPage ? { title: tr('LLM 协议', 'LLM protocol'), description: '' } : location.pathname.startsWith('/webdata/')
+  const page = location.pathname.startsWith('/webs3/') ? { title: 'WebS3', description: '' } : location.pathname.startsWith('/websftp/') ? { title: 'Web SFTP', description: '' } : isAIAccessPage ? { title: tr('OpenAI 协议', 'OpenAI protocol'), description: '' } : location.pathname.startsWith('/webdata/')
     ? {
         title: tr('数据访问', 'Data access'),
         description: tr('数据库连接与查询控制台', 'Database connection and query console'),
@@ -97,22 +98,10 @@ export function AppLayout() {
   const webDataRoute = location.pathname.match(
     /^\/webdata\/(\d+)(?:\/connections\/(\d+))?(?:\/sessions\/[^/]+(?:\/agent\/[^/]+)?)?$/,
   );
-  const isWebDataPage = Boolean(webDataRoute) || isAIAccessPage;
-  const webDataReturn = (() => {
-    if (isAIAccessPage) return { href: '/proxy', label: tr('返回访问', 'Back to access') };
-    if (!webDataRoute) return undefined;
-    if (webDataRoute[2]) {
-      return {
-        href: `/webdata/${webDataRoute[1]}${location.search}`,
-        label: tr('返回连接', 'Back to connections'),
-      };
-    }
-    const from = new URLSearchParams(location.search).get('from') || '';
-    return {
-      href: from.startsWith('/proxy') && !from.startsWith('//') ? from : '/proxy',
-      label: tr('返回访问', 'Back to access'),
-    };
-  })();
+  const isWebSFTPPage = /^\/websftp\/\d+\/?$/.test(location.pathname);
+  const isWebDataPage = Boolean(webDataRoute) || isAIAccessPage || isWebSFTPPage || location.pathname.startsWith('/webs3/');
+  const accessFallback=isAIAccessPage?'/proxy?access_type=aiapi':isWebSFTPPage?'/proxy?access_type=websftp':'/proxy';
+  const backToSource=useAccessBack(accessFallback);
 
   const fetchUserInfo = useCallback(async () => {
     const response = await getCurrentUser();
@@ -189,10 +178,10 @@ export function AppLayout() {
             </span>}
           </Link>
         </div>
-        {!isHome && <div className="liaison-global-actions">
-          <HeaderQuickSettings />
+        <div className="liaison-global-actions">
+          {!isHome && <HeaderQuickSettings />}
           <HeaderUser />
-        </div>}
+        </div>
       </header>
       <div className="liaison-shell">
         <Sidebar />
@@ -202,10 +191,10 @@ export function AppLayout() {
               className={`liaison-page-header${isWebDataPage ? ' is-context-only' : ''}`}
             >
               <div className="liaison-page-header-copy">
-                {webDataReturn && (
-                  <Link className="liaison-page-back" to={webDataReturn.href}>
+                {isWebDataPage && (
+                  <Link className="liaison-page-back" to={accessSource(location.search,accessFallback)} onClick={e=>{e.preventDefault();backToSource();}}>
                     <ArrowLeft size={13} />
-                    {webDataReturn.label}
+                    {tr('返回','Back')}
                   </Link>
                 )}
                 {!isWebDataPage && (

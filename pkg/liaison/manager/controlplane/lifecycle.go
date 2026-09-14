@@ -25,7 +25,7 @@ func isWebOnlyCapableApplicationType(appType model.ApplicationType) bool {
 	switch appType {
 	case model.ApplicationTypeSSH, model.ApplicationTypeRDP, model.ApplicationTypeVNC,
 		model.ApplicationTypeMySQL, model.ApplicationTypeMariaDB, model.ApplicationTypeSQLServer, model.ApplicationTypeOracle, model.ApplicationTypeClickHouse, model.ApplicationTypePostgreSQL, model.ApplicationTypeRedis,
-		model.ApplicationTypeMongoDB, model.ApplicationTypeElasticsearch, model.ApplicationTypeOpenSearch, model.ApplicationTypeDatabase:
+		model.ApplicationTypeMongoDB, model.ApplicationTypeElasticsearch, model.ApplicationTypeOpenSearch, model.ApplicationTypeMemcached, model.ApplicationTypeS3, model.ApplicationTypeDatabase:
 		return true
 	default:
 		return false
@@ -80,6 +80,23 @@ func (cp *controlPlane) startProxyRuntime(proxy *model.Proxy, application *model
 		AccessProtocol:  string(effectiveAccessProtocol(proxy, application)),
 		UseHTTPS:        useHTTPS,
 	}
+	// Native DB listeners must not accept connections before their persisted
+	// source policy is loaded. A lookup failure must not become allow-all.
+	nativeDB := protoproxy.AccessProtocol == "mysql" || protoproxy.AccessProtocol == "postgresql"
+	if nativeDB {
+		if cp.firewallManager == nil || cp.repo == nil {
+			return errors.New("database source policy is unavailable")
+		}
+		rule, err := cp.repo.GetFirewallRuleByProxyID(proxy.ID)
+		if err != nil {
+			return fmt.Errorf("load database source policy: %w", err)
+		}
+		if rule == nil {
+			cp.firewallManager.Revoke(int(proxy.ID))
+		} else if err := cp.firewallManager.Allow(int(proxy.ID), []string(rule.AllowedCIDRs)); err != nil {
+			return fmt.Errorf("apply database source policy: %w", err)
+		}
+	}
 	if err := cp.proxyManager.CreateProxy(context.Background(), protoproxy); err != nil {
 		return err
 	}
@@ -92,7 +109,9 @@ func (cp *controlPlane) startProxyRuntime(proxy *model.Proxy, application *model
 			return err
 		}
 	}
-	cp.reapplyFirewall(proxy.ID, proxy.Port)
+	if !nativeDB {
+		cp.reapplyFirewall(proxy.ID, proxy.Port)
+	}
 	return nil
 }
 

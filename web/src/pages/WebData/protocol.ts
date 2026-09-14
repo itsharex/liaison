@@ -8,6 +8,7 @@ export const protocolLabels: Record<string, string> = {
   opensearch: 'OpenSearch',
   postgresql: 'PostgreSQL',
   redis: 'Redis',
+  memcached: 'Memcached',
   mongodb: 'MongoDB',
 };
 
@@ -21,6 +22,8 @@ export const protocolWorkspaceCopy = (
   tr: Translate,
 ) => {
   switch (String(protocol || '').toLowerCase()) {
+    case 'memcached':
+      return {navigatorTitle:tr('缓存操作','Cache operations'),searchPlaceholder:tr('指定 Key 查询，不提供全量列表','Query a specific key; no full key listing'),editorTitle:tr('缓存请求','Cache request'),resultTitle:tr('请求结果','Request result')};
     case 'elasticsearch':
     case 'opensearch':
       return {

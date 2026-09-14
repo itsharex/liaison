@@ -1,8 +1,50 @@
+.webdesktop-workspace {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  height: calc(100dvh - 138px);
+  min-height: 420px;
+  min-width: 0;
+}
+.webdesktop-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  flex: 1;
+  min-height: 0;
+  min-width: 0;
+}
+.webdesktop-workbench:has(> .agent-workspace-root.is-docked) {
+  grid-template-columns: minmax(0, 1fr) min(45%, var(--agent-width, 420px));
+  gap: 16px;
+}
+.webdesktop-workbench > .agent-workspace-root.is-docked {
+  display: flex;
+  width: auto;
+  grid-row: 1;
+}
+.webdesktop-workbench > .agent-workspace-root.is-docked .agent-workspace {
+  display: flex;
+  flex: 1;
+  border: 1px solid rgb(var(--line));
+  border-radius: var(--surface-radius);
+}
+.webdesktop-workspace > .webdesktop-toolbar {
+  padding: 0;
+  min-height: 40px;
+  border: 0;
+  background: transparent;
+}
+.webdesktop-workspace .webdesktop-session-meta > div > span {
+  font-size: 13px;
+}
+.webdesktop-workspace.is-credential-setup .webdesktop-workbench {
+  visibility: hidden;
+}
 .webdesktop-shell {
   position: relative;
   display: flex;
-  min-height: calc(100vh - 138px);
-  max-height: calc(100vh - 138px);
+  min-height: 0;
+  min-width: 0;
   flex-direction: column;
   overflow: hidden;
   border: 1px solid rgb(var(--line) / 0.78);
@@ -286,7 +328,7 @@ body.webdesktop-page-active .liaison-page-body {
   display: grid;
   min-height: 64px;
   align-items: center;
-  grid-template-columns: minmax(180px, auto) minmax(320px, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) auto auto;
   gap: 22px;
   padding: 10px 14px;
   border-bottom: 1px solid rgb(var(--line) / 0.72);
@@ -322,7 +364,7 @@ body.webdesktop-page-active .liaison-page-body {
   color: rgb(var(--ink));
 }
 
-.webdesktop-identity > div {
+.webdesktop-identity > div:not(.liaison-access-context) {
   display: flex;
   min-width: 0;
   flex-direction: column;
@@ -338,7 +380,7 @@ body.webdesktop-page-active .liaison-page-body {
   white-space: nowrap;
 }
 
-.webdesktop-identity span:not(.webdesktop-screen-mark) {
+.webdesktop-identity > div:not(.liaison-access-context) span:not(.webdesktop-screen-mark) {
   color: rgb(var(--muted));
   font-size: 10px;
 }
@@ -377,9 +419,9 @@ body.webdesktop-page-active .liaison-page-body {
 .webdesktop-session-meta strong {
   overflow: hidden;
   color: rgb(var(--ink));
-  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
-  font-size: 11px;
-  font-weight: 550;
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 400;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -777,9 +819,8 @@ body.webdesktop-page-active .liaison-page-body {
     overflow-y: auto !important;
   }
 
-  .webdesktop-shell {
-    min-height: calc(100vh - 96px);
-    max-height: calc(100vh - 96px);
+  .webdesktop-workspace {
+    height: calc(100dvh - 96px);
   }
 
   .webdesktop-toolbar {

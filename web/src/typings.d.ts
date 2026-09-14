@@ -267,6 +267,7 @@ declare namespace API {
   }
 
   interface WebSSHCredential {
+    name?: string;
     id: number;
     saved: boolean;
     username?: string;
@@ -274,6 +275,7 @@ declare namespace API {
   }
 
   interface WebSSHTarget {
+    access_protocol?: string;
     proxy_id: number;
     proxy_name: string;
     application_id: number;
@@ -351,7 +353,7 @@ declare namespace API {
     id?: number;
     saved: boolean;
     name?: string;
-    protocol: 'mysql' | 'mariadb' | 'sqlserver' | 'oracle' | 'clickhouse' | 'elasticsearch' | 'opensearch' | 'postgresql' | 'redis' | 'mongodb';
+    protocol: 'mysql' | 'mariadb' | 'sqlserver' | 'oracle' | 'clickhouse' | 'elasticsearch' | 'opensearch' | 'postgresql' | 'redis' | 'memcached' | 'mongodb' | 's3';
     username?: string;
     database?: string;
     auth_database?: string;
@@ -369,7 +371,7 @@ declare namespace API {
     proxy_name: string;
     application_id: number;
     application_name: string;
-    protocol: 'mysql' | 'mariadb' | 'sqlserver' | 'oracle' | 'clickhouse' | 'elasticsearch' | 'opensearch' | 'postgresql' | 'redis' | 'mongodb';
+    protocol: 'mysql' | 'mariadb' | 'sqlserver' | 'oracle' | 'clickhouse' | 'elasticsearch' | 'opensearch' | 'postgresql' | 'redis' | 'memcached' | 'mongodb' | 's3';
     application_type: string;
     target_host: string;
     target_port: number;
@@ -395,6 +397,7 @@ declare namespace API {
   }
 
   interface SaveWebDataCredentialRequest {
+    remember_password?: boolean;
     id?: number;
     name?: string;
     protocol?: string;

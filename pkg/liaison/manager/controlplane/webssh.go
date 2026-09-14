@@ -10,6 +10,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/liaisonio/liaison/pkg/liaison/manager/iam"
 	"github.com/liaisonio/liaison/pkg/liaison/repo/model"
 	"github.com/liaisonio/liaison/pkg/proto"
 	"github.com/liaisonio/liaison/pkg/trafficconn"
@@ -23,6 +24,7 @@ type WebSSHHostKey struct {
 }
 
 type WebSSHCredential struct {
+	Name       string `json:"name,omitempty"`
 	ID         uint   `json:"id"`
 	Saved      bool   `json:"saved"`
 	Username   string `json:"username,omitempty"`
@@ -36,16 +38,17 @@ type WebSSHCredentialSecret struct {
 }
 
 type WebSSHTarget struct {
-	ProxyID                uint                `json:"proxy_id"`
-	ProxyName              string              `json:"proxy_name"`
-	ApplicationID          uint                `json:"application_id"`
-	ApplicationName        string              `json:"application_name"`
-	TargetHost             string              `json:"target_host"`
-	TargetPort             int                 `json:"target_port"`
-	EffectiveStatus        string              `json:"effective_status"`
-	EffectiveStatusMessage string              `json:"effective_status_message,omitempty"`
-	HostKey                *WebSSHHostKey      `json:"host_key,omitempty"`
-	Credentials            []*WebSSHCredential `json:"credentials,omitempty"`
+	AccessProtocol         model.AccessProtocol `json:"access_protocol"`
+	ProxyID                uint                 `json:"proxy_id"`
+	ProxyName              string               `json:"proxy_name"`
+	ApplicationID          uint                 `json:"application_id"`
+	ApplicationName        string               `json:"application_name"`
+	TargetHost             string               `json:"target_host"`
+	TargetPort             int                  `json:"target_port"`
+	EffectiveStatus        string               `json:"effective_status"`
+	EffectiveStatusMessage string               `json:"effective_status_message,omitempty"`
+	HostKey                *WebSSHHostKey       `json:"host_key,omitempty"`
+	Credentials            []*WebSSHCredential  `json:"credentials,omitempty"`
 
 	edgeID uint64
 }
@@ -213,6 +216,30 @@ func (cp *controlPlane) TouchWebSSHCredential(ctx context.Context, proxyID uint,
 	return cp.repo.TouchWebSSHCredential(proxyID, userID, username)
 }
 
+// SaveWebSFTPConnection stores a named, user-owned connection, independently of
+// opening a file session. A blank password only preserves an existing secret.
+func (cp *controlPlane) SaveWebSFTPConnection(ctx context.Context, proxyID uint, name, username, encryptedPassword, nonce string, remember, create bool) error {
+	target, err := cp.loadWebSSHTarget(ctx, proxyID)
+	if err != nil {
+		return err
+	}
+	if target.AccessProtocol != model.AccessProtocolWebSFTP && target.AccessProtocol != model.AccessProtocolWebSSH {
+		return iam.ErrForbidden
+	}
+	userID, err := requireWebSSHUserID(ctx)
+	if err != nil {
+		return err
+	}
+	name, username = strings.TrimSpace(name), strings.TrimSpace(username)
+	if name == "" || len(name) > 128 || username == "" || len(username) > 255 || strings.ContainsAny(username, "\r\n\x00") {
+		return errors.New("invalid connection profile")
+	}
+	if !remember {
+		encryptedPassword, nonce = "", ""
+	}
+	return cp.repo.SaveWebSFTPConnectionProfile(ctx, &model.WebSSHCredential{ProxyID: proxyID, UserID: userID, Name: name, Username: username, EncryptedPassword: encryptedPassword, Nonce: nonce}, remember, create)
+}
+
 func (cp *controlPlane) DeleteWebSSHCredential(ctx context.Context, proxyID uint, username string) error {
 	if err := cp.validateWebSSHProxy(ctx, proxyID); err != nil {
 		return err
@@ -244,6 +271,14 @@ func (cp *controlPlane) loadWebSSHTarget(ctx context.Context, proxyID uint) (*We
 		return nil, err
 	}
 	proxy.Application = application
+	if effectiveAccessProtocol(proxy, application) == model.AccessProtocolWebSFTP {
+		if cp.authorizeFeature == nil {
+			return nil, iam.ErrForbidden
+		}
+		if err := cp.authorizeFeature(ctx, iam.FeatureFilesRead); err != nil {
+			return nil, err
+		}
+	}
 	if application.ApplicationType != model.ApplicationTypeSSH {
 		return nil, errors.New("仅 SSH 应用支持 WebSSH")
 	}
@@ -263,6 +298,7 @@ func (cp *controlPlane) loadWebSSHTarget(ctx context.Context, proxyID uint) (*We
 		return nil, err
 	}
 	return &WebSSHTarget{
+		AccessProtocol:         effectiveAccessProtocol(proxy, application),
 		ProxyID:                proxy.ID,
 		ProxyName:              proxy.Name,
 		ApplicationID:          application.ID,
@@ -290,7 +326,8 @@ func (cp *controlPlane) loadWebSSHCredentials(proxyID, userID uint) ([]*WebSSHCr
 	for _, item := range saved {
 		credential := &WebSSHCredential{
 			ID:       item.ID,
-			Saved:    true,
+			Name:     item.Name,
+			Saved:    item.EncryptedPassword != "" && item.Nonce != "",
 			Username: item.Username,
 		}
 		if item.LastUsedAt != nil {

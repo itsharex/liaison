@@ -1,0 +1,28 @@
+syntax = "proto3";
+package liaison.websftp;
+
+// Custom HTTP contract, like api/ai_gateway.proto. Password is write-only;
+// blank password + remember_password=true preserves an existing secret.
+// POST creates, PUT updates /api/v1/webssh/proxies/{id}/credential (WebSSH/WebSFTP).
+message SaveConnectionRequest {
+  string name = 1;
+  string username = 2;
+  string password = 3;
+  bool remember_password = 4;
+}
+
+// POST /api/v1/webdesktop/proxies/{id}/credential. Write-only password;
+// protocol is derived from the authorized target, never from the caller.
+message SaveDesktopCredentialRequest {
+  string username = 1;
+  string password = 2;
+  string domain = 3;
+  // Omitted preserves legacy behavior. False stores only account metadata.
+  optional bool remember_password = 4;
+}
+
+// Additive JSON field on POST/PUT /api/v1/webdata/proxies/{id}/credential.
+// False removes the stored secret; omitted preserves legacy behavior.
+message WebDataPasswordStorage {
+  optional bool remember_password = 1;
+}

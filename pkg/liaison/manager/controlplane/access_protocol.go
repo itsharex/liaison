@@ -25,6 +25,13 @@ func normalizeAccessProtocol(raw string, application *model.Application, request
 	if err := validateAccessProtocol(protocol, application); err != nil {
 		return "", err
 	}
+	// These historical labels use opaque TCP forwarding, not native L7 servers.
+	// Keep runtime compatibility for stored rows, but reject new selections.
+	switch protocol {
+	case model.AccessProtocolRDP, model.AccessProtocolVNC, model.AccessProtocolMySQL,
+		model.AccessProtocolPostgreSQL, model.AccessProtocolRedis, model.AccessProtocolMongoDB:
+		return "", badRequest("ACCESS_PROTOCOL_UNSUPPORTED", "该原生协议尚未实现，请选择 TCP 转发或对应的 Web 访问")
+	}
 	return protocol, nil
 }
 
@@ -44,7 +51,7 @@ func validateAccessProtocol(protocol model.AccessProtocol, application *model.Ap
 		if application.ApplicationType != model.ApplicationTypeHTTP {
 			return badRequest("ACCESS_PROTOCOL_MISMATCH", "HTTP 访问只能关联 HTTP 应用")
 		}
-	case model.AccessProtocolSSH, model.AccessProtocolWebSSH:
+	case model.AccessProtocolSSH, model.AccessProtocolWebSSH, model.AccessProtocolWebSFTP:
 		if application.ApplicationType != model.ApplicationTypeSSH {
 			return badRequest("ACCESS_PROTOCOL_MISMATCH", "SSH 访问只能关联 SSH 应用")
 		}
@@ -88,7 +95,7 @@ func effectiveAccessProtocol(proxy *model.Proxy, application *model.Application)
 		case model.AccessProtocolTCP, model.AccessProtocolHTTP, model.AccessProtocolSSH,
 			model.AccessProtocolRDP, model.AccessProtocolVNC, model.AccessProtocolMySQL,
 			model.AccessProtocolPostgreSQL, model.AccessProtocolRedis, model.AccessProtocolMongoDB,
-			model.AccessProtocolWebSSH, model.AccessProtocolWeb, model.AccessProtocolAI:
+			model.AccessProtocolWebSSH, model.AccessProtocolWebSFTP, model.AccessProtocolWeb, model.AccessProtocolAI:
 			return proxy.AccessProtocol
 		}
 	}
@@ -105,5 +112,5 @@ func effectiveAccessProtocol(proxy *model.Proxy, application *model.Application)
 }
 
 func accessProtocolRequiresPublicPort(protocol model.AccessProtocol) bool {
-	return protocol != model.AccessProtocolWebSSH && protocol != model.AccessProtocolWeb && protocol != model.AccessProtocolAI
+	return protocol != model.AccessProtocolWebSSH && protocol != model.AccessProtocolWebSFTP && protocol != model.AccessProtocolWeb && protocol != model.AccessProtocolAI
 }

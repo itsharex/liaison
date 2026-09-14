@@ -48,6 +48,9 @@ export const downloadTextFile = (
 };
 
 export const isDangerousStatement = (protocol?: string, statement?: string) => {
+  if (protocol === 'memcached') {
+    try {return !['get','stats'].includes(JSON.parse(statement || '').operation);} catch {return true;}
+  }
   if (protocol === 'elasticsearch' || protocol === 'opensearch') {
     try {
       const cmd = JSON.parse(statement || '');

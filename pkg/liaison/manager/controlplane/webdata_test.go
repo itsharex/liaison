@@ -3,12 +3,37 @@ package controlplane
 import (
 	"context"
 	"errors"
+	"github.com/stretchr/testify/require"
 	"strings"
 	"testing"
 
 	"github.com/liaisonio/liaison/pkg/liaison/repo/model"
 	"gorm.io/gorm"
 )
+
+func TestWebDataMemcachedCredentialsRemainPrivate(t *testing.T) {
+	cp, r := newTestControlPlane(t)
+	t.Cleanup(func() { r.Close() })
+	_, app := createTestEdgeApplication(t, r)
+	app.ApplicationType = model.ApplicationTypeMemcached
+	app.Port = 11211
+	require.NoError(t, r.UpdateApplication(app))
+	proxy := &model.Proxy{Name: "cache", ApplicationID: app.ID, Status: model.ProxyStatusRunning, AccessProtocol: "web"}
+	require.NoError(t, r.CreateProxy(proxy))
+	grantTestResourceToUsers(t, r, resourceAccess, proxy.ID, 1, 2)
+	owner := context.WithValue(context.Background(), "user_id", uint(1))
+	other := context.WithValue(context.Background(), "user_id", uint(2))
+	require.NoError(t, cp.SaveWebDataCredential(owner, proxy.ID, "memcached", "", "", "", "", ""))
+	owned, err := cp.GetWebDataTarget(owner, proxy.ID)
+	require.NoError(t, err)
+	require.Equal(t, "memcached", owned.Protocol)
+	require.Len(t, owned.Credentials, 1)
+	separate, err := cp.GetWebDataTarget(other, proxy.ID)
+	require.NoError(t, err)
+	require.Empty(t, separate.Credentials)
+	_, err = cp.GetWebDataTarget(context.WithValue(context.Background(), "user_id", uint(9999)), proxy.ID)
+	require.Error(t, err)
+}
 
 func TestWebDataTargetRequiresDataApplication(t *testing.T) {
 	cp, r := newTestControlPlane(t)
@@ -175,6 +200,14 @@ func TestWebDataCredentialProfileCanBeEditedAndLoadedByID(t *testing.T) {
 	}
 	if secret.Name != "renamed mysql" || secret.TLSMode != "disable" || secret.EncryptedPassword != "enc-1" {
 		t.Fatalf("secret after update = %+v, want renamed profile with original password", secret)
+	}
+	metadata, err := cp.SaveWebDataCredentialProfile(ctx, proxy.ID, &WebDataCredentialProfile{ID: saved.ID, Name: "no stored password", Protocol: "mysql", Username: "root", Database: "app", PasswordChanged: true})
+	if err != nil || metadata.Saved {
+		t.Fatal("metadata-only credential must not report saved password", err)
+	}
+	raw, err := r.GetWebDataCredentialByID(saved.ID, proxy.ID, 1)
+	if err != nil || raw.EncryptedPassword != "" || raw.Nonce != "" {
+		t.Fatal("password not cleared", err)
 	}
 	if err := cp.DeleteWebDataCredentialByID(ctx, proxy.ID, saved.ID); err != nil {
 		t.Fatalf("DeleteWebDataCredentialByID: %v", err)

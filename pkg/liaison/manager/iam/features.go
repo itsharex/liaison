@@ -13,6 +13,8 @@ const (
 	FeatureSettingsRead  = "settings.global.read"
 	FeatureSettingsWrite = "settings.global.update"
 	FeaturePermissions   = "permissions.manage"
+	FeatureFilesRead     = "webssh.files.read"
+	FeatureFilesUpload   = "webssh.files.upload"
 )
 
 type Feature struct {
@@ -21,6 +23,7 @@ type Feature struct {
 }
 
 var featureCatalog = []Feature{
+	{FeatureFilesRead, "文件浏览"}, {FeatureFilesUpload, "文件上传"},
 	{FeatureAudit, "日志与审计"},
 	{FeatureHomeAI, "首页 AI"}, {FeatureAccessAI, "访问层 AI"},
 	{FeatureSettingsRead, "查看全局配置"}, {FeatureSettingsWrite, "修改全局配置"},
@@ -164,6 +167,9 @@ func (s *IAMService) SetUserFeaturePolicy(actor *model.User, enabled []string) e
 	}
 	if selected[FeatureSettingsWrite] && !selected[FeatureSettingsRead] {
 		return fmt.Errorf("%w: modifying settings requires read permission", ErrInvalid)
+	}
+	if selected[FeatureFilesUpload] && !selected[FeatureFilesRead] {
+		return fmt.Errorf("%w: file upload requires file browsing permission", ErrInvalid)
 	}
 	role, err := s.repo.GetIAMRoleByCode(model.IAMRoleUser)
 	if err != nil {

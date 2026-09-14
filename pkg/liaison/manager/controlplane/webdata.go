@@ -270,7 +270,7 @@ func (cp *controlPlane) SaveWebDataCredentialProfile(ctx context.Context, proxyI
 		return nil, errors.New("保存连接的协议类型与应用类型不匹配")
 	}
 	updatePassword := profile.PasswordChanged || profile.ID == 0
-	if updatePassword && (strings.TrimSpace(profile.EncryptedPassword) == "" || strings.TrimSpace(profile.Nonce) == "") {
+	if updatePassword && ((profile.EncryptedPassword == "") != (profile.Nonce == "")) {
 		return nil, errors.New("WebData 凭据密码不能为空")
 	}
 	credential := &model.WebDataCredential{
@@ -438,7 +438,7 @@ func normalizeAccessAuditDetails(protocol string, audit *WebDataAudit) map[strin
 		details[key] = value
 	}
 	if value := strings.TrimSpace(audit.Database); value != "" {
-		if protocol == "ssh" || protocol == "webssh" {
+		if protocol == "ssh" || protocol == "webssh" || protocol == "websftp" {
 			details["ssh_user"] = value
 		} else {
 			details["database"] = value
@@ -739,7 +739,7 @@ func (cp *controlPlane) loadWebDataCredentials(proxyID, userID uint, protocol st
 
 func isWebDataProtocol(protocol string) bool {
 	switch normalizeWebDataProtocol(protocol) {
-	case "mysql", "mariadb", "sqlserver", "oracle", "clickhouse", "elasticsearch", "opensearch", "postgresql", "redis", "mongodb":
+	case "mysql", "mariadb", "sqlserver", "oracle", "clickhouse", "elasticsearch", "opensearch", "postgresql", "redis", "memcached", "mongodb", "s3":
 		return true
 	default:
 		return false
@@ -748,7 +748,7 @@ func isWebDataProtocol(protocol string) bool {
 
 func isAccessAuditProtocol(protocol string) bool {
 	switch normalizeWebDataProtocol(protocol) {
-	case "ssh", "webssh", "rdp", "vnc":
+	case "ssh", "webssh", "websftp", "rdp", "vnc":
 		return true
 	default:
 		return isWebDataProtocol(protocol)
@@ -820,7 +820,7 @@ func webDataCredentialFromModel(item *model.WebDataCredential) *WebDataCredentia
 	}
 	credential := &WebDataCredential{
 		ID:               item.ID,
-		Saved:            true,
+		Saved:            item.EncryptedPassword != "" && item.Nonce != "",
 		Name:             item.Name,
 		Protocol:         item.Protocol,
 		Username:         item.Username,

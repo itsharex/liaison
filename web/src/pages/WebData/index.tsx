@@ -1,4 +1,8 @@
 import { useI18n } from '@/i18n';
+import AccessContext from '@/components/AccessContext';
+import MemcachedOverview from './MemcachedOverview';
+import {accessSource} from '@/hooks/useAccessBack';
+import {Modal as CredentialModal,Field as CredentialField,Input as CredentialInput,Button as CredentialButton} from '@/components/ui';
 import { AuditLogIcon } from '@/components/icons/AuditLogIcon';
 import AgentWorkspace from '@/components/AgentWorkspace';
 import { connectionReference, useSessionPath, SessionPathNotice } from '@/components/SessionReference/useSessionPath';
@@ -222,6 +226,8 @@ const WebDataPage: React.FC = () => {
     number | undefined
   >();
   const [connectionDrawerOpen, setConnectionDrawerOpen] = useState(false);
+  const [promptCredential,setPromptCredential]=useState<API.WebDataCredential>();
+  const [temporaryPassword,setTemporaryPassword]=useState('');
   const [editingCredential, setEditingCredential] =
     useState<API.WebDataCredential>();
   const [executing, setExecuting] = useState(false);
@@ -279,7 +285,7 @@ const WebDataPage: React.FC = () => {
   const returnQuery = requestedReturnPath
     ? `?from=${encodeURIComponent(requestedReturnPath)}`
     : '';
-  const connectionListPath = `/webdata/${proxyId}${returnQuery}`;
+  const connectionListPath = accessSource(`from=${encodeURIComponent(requestedReturnPath)}`,`/proxy?access_type=${webAccessType}`);
   const connectionDetailPath = (id: number) =>
     `/webdata/${proxyId}/connections/${id}${returnQuery}`;
 
@@ -311,7 +317,7 @@ const WebDataPage: React.FC = () => {
         if (!mounted) return;
         if (res.code === 200 && res.data) {
           setTarget(res.data);
-          setStatement('');
+          setStatement(res.data.protocol==='memcached'?'{"operation":"stats"}':'');
           connectionForm.setFieldsValue({
             protocol: res.data.protocol,
             redis_db: 0,
@@ -534,14 +540,18 @@ const WebDataPage: React.FC = () => {
 
   const connectCredentialSession = async (
     credential: API.WebDataCredential,
+    password?: string,
   ) => {
     if (!target || !credential.id) return false;
+    if(!credential.saved&&password===undefined&&credential.protocol!=='memcached'){setTemporaryPassword('');setPromptCredential(credential);return false;}
     setConnecting(true);
     setConnectionError(undefined);
     setConnectingCredentialId(credential.id);
     try {
       const res = await createWebDataSession(proxyId, {
-        credential_id: credential.id,
+        credential_id: credential.saved&&password===undefined?credential.id:undefined,
+        password,
+        save_credential:false,
         protocol: target.protocol,
         username: credential.username,
         database: credential.database,
@@ -559,6 +569,7 @@ const WebDataPage: React.FC = () => {
         return false;
       }
       await activateSession(res.data, credential.id);
+      setTemporaryPassword('');setPromptCredential(undefined);
       return true;
     } catch (err: any) {
       setConnectionError(err?.message || tr('连接失败', 'Connection failed'));
@@ -626,6 +637,14 @@ const WebDataPage: React.FC = () => {
     });
     setConnectionDrawerOpen(true);
   };
+
+  const quickEntryStarted = useRef<string>();
+  useEffect(()=>{
+    if(routeSearch.get('connect')!=='1'||!target||String(target.proxy_id)!==String(proxyId)||quickEntryStarted.current===String(proxyId))return;
+    quickEntryStarted.current=String(proxyId);
+    const credential=target.credentials?.[0];
+    if(credential)void handleConnectWithCredential(credential);else openCreateConnection();
+  },[target,routeSearch]);
 
   const closeConnectionDrawer = () => {
     setConnectionDrawerOpen(false);
@@ -2874,22 +2893,16 @@ const WebDataPage: React.FC = () => {
 
   return (
     <PageContainer title={false}>
+      <CredentialModal open={!!promptCredential} title={tr('连接验证','Connection authentication')} onClose={()=>{setTemporaryPassword('');setPromptCredential(undefined);history.push(connectionListPath);}} footer={<CredentialButton variant="primary" disabled={connecting} onClick={()=>{if(promptCredential)void connectCredentialSession(promptCredential,temporaryPassword);}}>{connecting?tr('连接中…','Connecting…'):tr('连接','Connect')}</CredentialButton>}>
+        <div className="liaison-form"><CredentialField label={tr('用户名','Username')}><CredentialInput value={promptCredential?.username||''} readOnly/></CredentialField>
+        <CredentialField label={tr('密码','Password')} hint={tr('仅用于本次连接，不保存密码。','Used for this connection only. The password is not saved.')}><CredentialInput autoFocus type="password" autoComplete="off" value={temporaryPassword} onChange={e=>setTemporaryPassword(e.target.value)} onKeyDown={e=>{if(e.key==='Enter'&&!connecting&&promptCredential)void connectCredentialSession(promptCredential,temporaryPassword);}}/></CredentialField>
+        {connectionError&&<Alert type="error" message={tr('连接失败，请检查密码和服务状态。','Connection failed. Check the password and service status.')}/>}</div>
+      </CredentialModal>
       <SessionPathNotice show={!!sessionPath.connectionId && !session} href={sessionPath.reconnectURL} />
       <div className={`webdata-shell${connected ? ' is-connected' : ''}`}>
         <div className="webdata-header">
           <div className="webdata-header-main">
-            <nav className="webdata-header-breadcrumb" aria-label={tr('页面层级', 'Breadcrumb')}>
-              <span>{tr('访问', 'Access')}</span><i>/</i>
-              <span>{accessTypeLabel(webAccessType)}</span><i>/</i>
-              <span>{tr('连接', 'Connection')}</span>
-              {isConnectionDetail && <><i>/</i><strong>{tr('详情', 'Detail')}</strong></>}
-            </nav>
-            {isConnectionDetail && (
-              <span className="webdata-context">
-                <strong>{target?.proxy_name || tr('数据控制台', 'Data Console')}</strong>
-                <span>{target?.target_host}:{target?.target_port}</span>
-              </span>
-            )}
+            <AccessContext name={target?.proxy_name || tr('数据控制台','Data console')} protocol={accessTypeLabel(webAccessType)} target={target?`${target.target_host}:${target.target_port}`:undefined}/>
           </div>
           <div className="webdata-header-actions">
             <Space wrap>
@@ -2951,6 +2964,9 @@ const WebDataPage: React.FC = () => {
           >
             <div className="webdata-side-frame">
               <aside className="webdata-side">
+                {target?.protocol === 'memcached' ? <>
+                  {session && <MemcachedOverview key={session.token} token={session.token} keyValue={treeSearch} onKeyChange={setTreeSearch} />}
+                </> : <>
                 <div className="webdata-side-header">
                   <Text strong>{workspaceCopy.navigatorTitle}</Text>
                   <Tooltip title={tr('刷新对象', 'Refresh objects')}>
@@ -3031,6 +3047,7 @@ const WebDataPage: React.FC = () => {
                     )}
                   </Spin>
                 </div>
+                </>}
               </aside>
             </div>
             <div
@@ -3059,6 +3076,12 @@ const WebDataPage: React.FC = () => {
                     )}
                   </div>
                   <Space wrap className="webdata-editor-actions">
+                    {target?.protocol === 'memcached' && <>
+                      <Button size="small" onClick={() => setStatement(JSON.stringify({operation: 'stats'}, null, 2))}>{tr('服务统计', 'Service stats')}</Button>
+                      <Button size="small" disabled={!treeSearch} onClick={() => setStatement(JSON.stringify({operation: 'get', key: treeSearch}, null, 2))}>{tr('读取 Key', 'Read key')}</Button>
+                      <Button size="small" disabled={!treeSearch} onClick={() => setStatement(JSON.stringify({operation: 'set', key: treeSearch, value: '', ttl_seconds: 300}, null, 2))}>{tr('写入 Key', 'Write key')}</Button>
+                      <Button size="small" disabled={!treeSearch} onClick={() => setStatement(JSON.stringify({operation: 'delete', key: treeSearch}, null, 2))}>{tr('删除 Key', 'Delete key')}</Button>
+                    </>}
                     <Tooltip
                       title={tr(
                         '有选中文本时只执行选中命令',
@@ -3104,7 +3127,7 @@ const WebDataPage: React.FC = () => {
                     >
                       {tr('复制', 'Copy')}
                     </Button>
-                    <Button
+                    {target?.protocol !== 'memcached' && <Button
                       className="webdata-toolbar-action"
                       type="link"
                       icon={<FileTextOutlined />}
@@ -3112,7 +3135,7 @@ const WebDataPage: React.FC = () => {
                       onClick={() => setObjectDetailOpen(true)}
                     >
                       {tr('对象详情', 'Details')}
-                    </Button>
+                    </Button>}
                   </Space>
                 </div>
                 {filterOpen && objectDetail &&
@@ -3123,6 +3146,7 @@ const WebDataPage: React.FC = () => {
                   renderObjectFilter(
                     objectFilterFieldInfos(target?.protocol, objectDetail),
                   )}
+                {target?.protocol === 'memcached' && <p className="webdata-cache-hint">{tr('操作按钮填入草稿，点击执行发送请求。写入和删除需确认；value 为 Base64，ttl_seconds 单位为秒。', 'Actions prepare a draft; Run sends it. Writes and deletes require confirmation. value is Base64; ttl_seconds is in seconds.')}</p>}
                 <div className="webdata-editor-input webdata-code-editor">
                   <div className="webdata-editor-gutter" aria-hidden="true">
                     <div
@@ -3222,7 +3246,7 @@ const WebDataPage: React.FC = () => {
                 </div>
               </div>
 
-              {canAI && session?.token && <DataAssistance key={session.token} handleId={session.token} text={statement} onApply={replaceStatement} />}
+              {canAI && session?.token && target?.protocol !== 'memcached' && <DataAssistance key={session.token} handleId={session.token} text={statement} onApply={replaceStatement} />}
               <div className="webdata-result">
                 <div className="webdata-result-meta">
                   <Text strong>{workspaceCopy.resultTitle}</Text>
@@ -3291,7 +3315,7 @@ const WebDataPage: React.FC = () => {
                   if (sessionPath.connectionId) history.replace(connectionDetailPath(credential.id));
                   void connectCredentialSession(credential);
                 }}>{tr('重新连接', 'Reconnect')}</Button>
-                <Button onClick={() => history.push(connectionListPath)}>{tr('返回连接', 'Back to connections')}</Button>
+                <Button onClick={() => history.push(connectionListPath)}>{tr('返回访问', 'Back to access')}</Button>
               </Space>
             </div>}
           </div>

@@ -3,6 +3,7 @@ import type { ApplicationType } from './applicationTypes';
 export type WebAccessType =
   | 'aiapi'
   | 'webssh'
+  | 'websftp'
   | 'webrdp'
   | 'webvnc'
   | 'webmysql'
@@ -14,6 +15,8 @@ export type WebAccessType =
   | 'webopensearch'
   | 'webpostgresql'
   | 'webredis'
+  | 'webmemcached'
+  | 'webs3'
   | 'webmongodb';
 
 export type AccessType = ApplicationType | WebAccessType;
@@ -23,15 +26,15 @@ type AccessTypeOption = { value: AccessType; label: string };
 const NATIVE_ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
   { value: 'http', label: 'HTTP' },
   { value: 'ssh', label: 'SSH' },
-  { value: 'rdp', label: 'RDP' },
-  { value: 'vnc', label: 'VNC' },
 ];
 
 // Kept as known values so legacy records can still be identified and hidden
 // without being misclassified as TCP. Liaison does not currently terminate
-// these native database protocols, so they are not exposed as product access
+// these native desktop/database protocols, so they are not exposed as product access
 // types until a protocol-aware server implementation exists.
-const UNSUPPORTED_NATIVE_DATA_ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
+const UNSUPPORTED_NATIVE_ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
+  { value: 'rdp', label: 'RDP' },
+  { value: 'vnc', label: 'VNC' },
   { value: 'mysql', label: 'MySQL' },
   { value: 'mariadb', label: 'MariaDB' },
   { value: 'sqlserver', label: 'SQL Server' },
@@ -46,6 +49,7 @@ const UNSUPPORTED_NATIVE_DATA_ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
 
 const WEB_ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
   { value: 'webssh', label: 'Web SSH' },
+  { value: 'websftp', label: 'Web SFTP' },
   { value: 'webrdp', label: 'Web RDP' },
   { value: 'webvnc', label: 'Web VNC' },
   { value: 'webmysql', label: 'Web MySQL' },
@@ -57,8 +61,10 @@ const WEB_ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
   { value: 'webopensearch', label: 'Web OpenSearch' },
   { value: 'webpostgresql', label: 'Web PostgreSQL' },
   { value: 'webredis', label: 'Web Redis' },
+  { value: 'webmemcached', label: 'Web Memcached' },
+  { value: 'webs3', label: 'Web S3' },
   { value: 'webmongodb', label: 'Web MongoDB' },
-  { value: 'aiapi', label: 'LLM' },
+  { value: 'aiapi', label: 'OpenAI' },
 ];
 
 // Keep one product-wide order: L4 passthrough, native protocol, browser access.
@@ -70,7 +76,7 @@ export const ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
 
 const KNOWN_ACCESS_TYPES: ReadonlyArray<AccessTypeOption> = [
   ...ACCESS_TYPES,
-  ...UNSUPPORTED_NATIVE_DATA_ACCESS_TYPES,
+  ...UNSUPPORTED_NATIVE_ACCESS_TYPES,
 ];
 
 // Creation prefers browser workspaces without changing navigation/filter order.
@@ -93,6 +99,8 @@ const WEB_TYPE_BY_APPLICATION: Partial<Record<ApplicationType, WebAccessType>> =
   opensearch: 'webopensearch',
   postgresql: 'webpostgresql',
   redis: 'webredis',
+  memcached: 'webmemcached',
+  s3: 'webs3',
   mongodb: 'webmongodb',
 };
 
@@ -115,6 +123,7 @@ export const isWebAccessType = (
 ): value is WebAccessType => WEB_ACCESS_TYPES.some((item) => item.value === value);
 
 export const applicationTypeForAccess = (accessType: AccessType): ApplicationType => {
+  if (accessType === 'websftp') return 'ssh';
   const webEntry = Object.entries(WEB_TYPE_BY_APPLICATION).find(([, value]) => value === accessType);
   return (webEntry?.[0] || accessType) as ApplicationType;
 };
@@ -122,6 +131,7 @@ export const applicationTypeForAccess = (accessType: AccessType): ApplicationTyp
 export const accessProtocolForType = (accessType: AccessType) => {
   if (accessType === 'aiapi') return 'aiapi';
   if (accessType === 'webssh') return 'webssh';
+  if (accessType === 'websftp') return 'websftp';
   return isWebAccessType(accessType) ? 'web' : accessType;
 };
 
@@ -130,6 +140,7 @@ export const accessTypesForApplication = (applicationType: string): AccessTypeOp
   const webType = WEB_TYPE_BY_APPLICATION[applicationType as ApplicationType];
   return [
     ...(webType ? WEB_ACCESS_TYPES.filter((item) => item.value === webType) : []),
+    ...(applicationType === 'ssh' ? WEB_ACCESS_TYPES.filter((item) => item.value === 'websftp') : []),
     { value: 'tcp', label: 'TCP' },
     ...(applicationType !== 'tcp' && native ? [native] : []),
   ];

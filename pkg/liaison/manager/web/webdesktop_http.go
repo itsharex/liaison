@@ -260,6 +260,10 @@ func (web *web) handleCreateWebDesktopSessionHTTP(w http.ResponseWriter, r *http
 			writeJSON(w, status, map[string]any{"code": status, "message": err.Error()})
 			return
 		}
+		if credential.EncryptedPassword == "" {
+			writeJSON(w, 400, map[string]any{"code": 400, "message": "password required"})
+			return
+		}
 		password, err = web.decryptWebSSHPassword(credential.EncryptedPassword, credential.Nonce)
 		if err != nil {
 			writeJSON(w, http.StatusInternalServerError, map[string]any{"code": http.StatusInternalServerError, "message": "已保存密码无法解密，请清除后重新保存"})
@@ -306,8 +310,9 @@ func (web *web) handleCreateWebDesktopSessionHTTP(w http.ResponseWriter, r *http
 }
 
 func (web *web) handleWebDesktopCredentialHTTP(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		w.Header().Set("Allow", "DELETE")
+	w.Header().Set("Cache-Control", "no-store")
+	if r.Method != http.MethodDelete && r.Method != http.MethodPost {
+		w.Header().Set("Allow", "POST, DELETE")
 		writeJSON(w, http.StatusMethodNotAllowed, map[string]any{"code": http.StatusMethodNotAllowed, "message": "method not allowed"})
 		return
 	}
@@ -326,6 +331,37 @@ func (web *web) handleWebDesktopCredentialHTTP(w http.ResponseWriter, r *http.Re
 	if targetErr != nil {
 		status := webDesktopHTTPStatus(targetErr)
 		writeJSON(w, status, map[string]any{"code": status, "message": targetErr.Error()})
+		return
+	}
+	if r.Method == http.MethodPost {
+		var req struct {
+			Username         string `json:"username"`
+			Password         string `json:"password"`
+			Domain           string `json:"domain"`
+			RememberPassword *bool  `json:"remember_password"`
+		}
+		dec := json.NewDecoder(http.MaxBytesReader(w, r.Body, 16*1024))
+		dec.DisallowUnknownFields()
+		if dec.Decode(&req) != nil || len(req.Username) > 255 || len(req.Domain) > 255 || ((req.RememberPassword == nil || *req.RememberPassword) && req.Password == "") || (target.Protocol == "rdp" && strings.TrimSpace(req.Username) == "") {
+			writeJSON(w, 400, map[string]any{"code": 400, "message": "invalid connection credentials"})
+			return
+		}
+		secret := []byte(req.Password)
+		req.Password = ""
+		encrypted, nonce := "", ""
+		if req.RememberPassword == nil || *req.RememberPassword {
+			encrypted, nonce, err = web.encryptWebSSHPassword(secret)
+		}
+		zeroBytes(secret)
+		if err == nil {
+			err = web.controlPlane.SaveWebDesktopCredential(ctx, proxyID, target.Protocol, req.Username, req.Domain, encrypted, nonce)
+		}
+		web.recordWebDesktopAudit(target, user.ID, r, "save_credential", req.Username, req.Domain, err == nil, 0, "")
+		if err != nil {
+			writeJSON(w, 500, map[string]any{"code": 500, "message": "unable to save credentials"})
+			return
+		}
+		writeJSON(w, 200, map[string]any{"code": 200, "message": "success"})
 		return
 	}
 	if err := web.controlPlane.DeleteWebDesktopCredential(ctx, proxyID, r.URL.Query().Get("protocol"), r.URL.Query().Get("username"), r.URL.Query().Get("domain")); err != nil {

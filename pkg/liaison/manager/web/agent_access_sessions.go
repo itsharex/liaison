@@ -162,7 +162,7 @@ func (handle *webDataAgentHandle) auditQuery(ctx context.Context, statement stri
 		Protocol:         handle.session.protocol,
 		Action:           "agent_execute",
 		Database:         webDataAuditSessionDatabase(handle.session),
-		StatementPreview: webDataStatementPreview(statement),
+		StatementPreview: webDataAuditPreview(handle.session.protocol, statement),
 		StatementSHA256:  webDataStatementHash(statement),
 		Success:          execErr == nil,
 		AffectedRows:     result.AffectedRows,

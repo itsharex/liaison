@@ -1,3 +1,5 @@
+import AccessContext from '@/components/AccessContext';
+import {accessSource,useAccessBack} from '@/hooks/useAccessBack';
 import SessionWatermark, {
   buildSessionWatermarkLabel,
   useSessionWatermarkTime,
@@ -6,6 +8,7 @@ import AgentWorkspace from '@/components/AgentWorkspace';
 import ShellAgent from '@/components/TerminalAssistant/ShellAgent';
 import {createAgentSession} from '@/services/agent';
 import SessionInfo from '@/components/SessionReference/SessionInfo';
+import Files from './Files';
 import {request} from '@/api/client';
 import { useSessionPath, SessionPathNotice } from '@/components/SessionReference/useSessionPath';
 import '@/components/TerminalAssistant/index.less';
@@ -101,6 +104,11 @@ const WebSSHPage: React.FC = () => {
   const [connectionReferenceHandle, setConnectionReferenceHandle] = useState('');
   const [agentOpen, setAgentOpen] = useState(false);
   const canAI = useFeature('ai.access.use');
+  const canFiles = useFeature('webssh.files.read');
+  const [filesOpen,setFilesOpen]=useState(false);
+  const [filesMounted,setFilesMounted]=useState(false);
+  useEffect(()=>{if(filesOpen)setFilesMounted(true);if(!connected||!canFiles)setFilesMounted(false)},[filesOpen,connected,canFiles]);
+  useEffect(()=>{if(!connected||!canFiles)setFilesOpen(false)},[connected,canFiles]);
   completionBinding.current.handle = agentHandleID;
   completionBinding.current.allowed = canAI && connected;
   completionBinding.current.contextMode = contextMode;
@@ -145,7 +153,7 @@ const WebSSHPage: React.FC = () => {
   const active = target?.effective_status === 'active';
   const savedCredentials = target?.credentials || [];
   const selectedSavedCredential = credentialId > 0 && savedCredentials.some(
-    (item) => item.id === credentialId && item.username === watchedUsername,
+    (item) => item.id === credentialId && item.saved && item.username === watchedUsername,
   );
   const watermarkTime = useSessionWatermarkTime();
   const watermarkUser =
@@ -190,24 +198,16 @@ const WebSSHPage: React.FC = () => {
   }, []);
 
   const requestedReturnPath = routeSearch.get('from') || '';
-  const accessReturnPath = requestedReturnPath.startsWith('/proxy') && !requestedReturnPath.startsWith('//')
-    ? requestedReturnPath
-    : '/proxy?access_type=webssh';
+  const accessReturnPath = accessSource(routeSearch.toString(),'/proxy?access_type=webssh');
 
-  const connectionListPath = `/webssh/${proxyId}${
-    requestedReturnPath ? `?from=${encodeURIComponent(accessReturnPath)}` : ''
-  }`;
+  const connectionListPath = accessReturnPath;
   const temporarySessionPath = `/webssh/${proxyId}/session${
     requestedReturnPath ? `?from=${encodeURIComponent(accessReturnPath)}` : ''
   }`;
 
-  const returnToAccess = useCallback(() => {
-    history.push(accessReturnPath);
-  }, [accessReturnPath]);
+  const returnToAccess = useAccessBack(accessReturnPath);
 
-  const returnToConnections = useCallback(() => {
-    history.push(connectionListPath);
-  }, [connectionListPath]);
+  const returnToConnections = useAccessBack(connectionListPath);
 
   const openNewConnection = useCallback(() => {
     initialCredentialPromptRef.current = false;
@@ -290,6 +290,7 @@ const WebSSHPage: React.FC = () => {
   );
 
   const focusTerminal = useCallback((force = false) => {
+    if (document.querySelector('.webssh-shell.is-files-active')) return;
     if (!force && document.activeElement?.closest('.agent-workspace, .terminal-assistant')) return;
     if (!terminalRef.current) {
       terminalFrameRef.current?.focus();
@@ -297,12 +298,13 @@ const WebSSHPage: React.FC = () => {
     }
     terminalRef.current.focus();
     requestAnimationFrame(() => {
-      if (!document.activeElement?.closest('.agent-workspace, .terminal-assistant')) terminalRef.current?.focus();
+      if (!document.querySelector('.webssh-shell.is-files-active') && !document.activeElement?.closest('.agent-workspace, .terminal-assistant')) terminalRef.current?.focus();
     });
   }, []);
 
   const fitTerminal = useCallback(
     (stickToBottom = isTerminalAtBottom(terminalRef.current)) => {
+      if (!terminalFrameRef.current?.offsetWidth) return;
       fitAddonRef.current?.fit();
       if (stickToBottom) {
         terminalRef.current?.scrollToBottom();
@@ -343,7 +345,7 @@ const WebSSHPage: React.FC = () => {
   );
 
   const toggleFullscreen = useCallback(async () => {
-    const frame = terminalFrameRef.current;
+    const frame = filesOpen ? terminalFrameRef.current?.closest<HTMLElement>('.webssh-shell') : terminalFrameRef.current;
     if (!frame || !connected) return;
     try {
       if (document.fullscreenElement === frame) {
@@ -356,7 +358,7 @@ const WebSSHPage: React.FC = () => {
     } catch (e: any) {
       setError(e?.message || tr('无法进入全屏', 'Unable to enter fullscreen'));
     }
-  }, [connected, focusTerminal, scheduleTerminalFit, tr]);
+  }, [connected, filesOpen, focusTerminal, scheduleTerminalFit, tr]);
 
   const stopHeartbeat = useCallback(() => {
     if (heartbeatTimerRef.current !== undefined) {
@@ -598,7 +600,7 @@ const WebSSHPage: React.FC = () => {
 
   useEffect(() => {
     const handleFullscreenChange = () => {
-      const active = document.fullscreenElement === terminalFrameRef.current;
+      const active = !!document.fullscreenElement && (document.fullscreenElement === terminalFrameRef.current || document.fullscreenElement === terminalFrameRef.current?.closest('.webssh-shell'));
       setFullscreen(active);
       scheduleTerminalFit(true);
       focusTerminal();
@@ -632,7 +634,7 @@ const WebSSHPage: React.FC = () => {
         username: values.username?.trim(),
         password,
         save_credential: shouldSaveCredential,
-        use_saved_credential: Boolean(credentialId > 0 && !password),
+        use_saved_credential: Boolean(!password && savedCredentials.some(item => item.id === credentialId && item.saved && item.username === values.username?.trim())),
         cols: terminalRef.current?.cols,
         rows: terminalRef.current?.rows,
       });
@@ -796,6 +798,7 @@ const WebSSHPage: React.FC = () => {
     const saved = target?.credentials?.find((item) => item.id === credentialId);
     if (!saved?.username) return;
     initialSavedConnectRef.current = credentialId;
+    if (!saved.saved) { setCredentialOpen(true); return; }
     void connect({
       username: saved.username,
       password: '',
@@ -1009,38 +1012,21 @@ const WebSSHPage: React.FC = () => {
   return (
     <>
       <SessionPathNotice show={!!sessionPath.connectionId && !agentHandleID && !connecting} href={sessionPath.reconnectURL} />
-      <div className={`webssh-shell ${credentialOpen && !connected ? 'is-credential-setup' : ''}`}>
+      <div className="webssh-workspace">
         <header className="webssh-toolbar">
           <div className="webssh-identity">
             <Button
               className="webssh-back-button"
               variant="ghost"
-              aria-label={tr('返回连接', 'Back to connections')}
+              aria-label={tr('返回访问', 'Back to access')}
               onClick={returnToConnections}
             ><ArrowLeft size={16} /></Button>
-            <span className="webssh-terminal-mark" aria-hidden="true">
-              &gt;_
-            </span>
-            <div>
-              <strong>
-                {target?.proxy_name || tr('WebSSH 会话', 'WebSSH session')}
-                <SessionInfo connectionId={sessionPath.connectionId} handle={connectionReferenceHandle} agentId={sessionPath.agentSessionId}/>
-              </strong>
-              <span>{tr('安全终端', 'Secure terminal')}</span>
-            </div>
+            <AccessContext name={target?.proxy_name || 'WebSSH'} protocol="SSH" target={target?`${target.target_host}:${target.target_port}`:undefined}>
+              <SessionInfo connectionId={sessionPath.connectionId} handle={connectionReferenceHandle} agentId={sessionPath.agentSessionId}/>
+            </AccessContext>
           </div>
 
           <div className="webssh-session-meta">
-            <div>
-              <span>{tr('应用', 'Application')}</span>
-              <strong>{target?.application_name || '-'}</strong>
-            </div>
-            <div>
-              <span>{tr('目标', 'Target')}</span>
-              <strong>
-                {target ? `${target.target_host}:${target.target_port}` : '-'}
-              </strong>
-            </div>
             <div>
               <span>{tr('状态', 'Status')}</span>
               <strong
@@ -1067,6 +1053,10 @@ const WebSSHPage: React.FC = () => {
           </div>
 
           <div className="webssh-toolbar-actions">
+            {connected&&canFiles&&<div className="webssh-view-tabs" role="tablist" aria-label={tr('工作区','Workspace')}>
+              <button role="tab" aria-selected={!filesOpen} onClick={()=>{setFilesOpen(false);requestAnimationFrame(()=>scheduleTerminalFit())}}>{tr('终端','Terminal')}</button>
+              <button role="tab" aria-selected={filesOpen} onClick={()=>setFilesOpen(true)}>{tr('文件','Files')}</button>
+            </div>}
             {canAI && connected && agentHandleID && (
               <Button onClick={sessionPath.toggleAgent}>
                 <Sparkles size={14} />
@@ -1104,7 +1094,7 @@ const WebSSHPage: React.FC = () => {
             )}
           </div>
         </header>
-
+      <div className={`webssh-shell ${filesOpen?'is-files-active':''} ${credentialOpen && !connected ? 'is-credential-setup' : ''}`}>
         {loading && (
           <div className="webssh-loading">
             <span className="webssh-native-spinner" />
@@ -1154,7 +1144,7 @@ const WebSSHPage: React.FC = () => {
                   </p>
                   <div className="webssh-session-end-actions">
                     <Button onClick={returnToConnections}>
-                      {tr('返回连接', 'Back to connections')}
+                      {tr('返回访问', 'Back to access')}
                     </Button>
                     <Button
                       variant="primary"
@@ -1214,6 +1204,7 @@ const WebSSHPage: React.FC = () => {
               : tr('AI 自动提示会发送当前草稿 · Ctrl+Space 立即提示 · Tab 接受 · Esc 忽略 · 回车前请检查', 'Automatic AI sends the current draft · Ctrl+Space suggests · Tab accepts · Esc dismisses · Review before Enter')}
           </div>
         </section>}
+        {filesMounted&&connected&&canFiles&&credentials.username&&<div className="webssh-files-pane" hidden={!filesOpen}><Files proxyId={proxyId} username={credentials.username} saved={savedCredentials.some(c=>c.username===credentials.username)} onClose={()=>setFilesOpen(false)}/></div>}
         <AgentWorkspace
           docked
           open={sessionPath.agentOpen}
@@ -1228,7 +1219,7 @@ const WebSSHPage: React.FC = () => {
           onClose={sessionPath.closeAgent}
         />
       </div>
-
+      </div>
       {credentialModal}
     </>
   );

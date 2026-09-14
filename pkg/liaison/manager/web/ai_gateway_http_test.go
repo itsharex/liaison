@@ -58,3 +58,33 @@ func TestAIErrorCarriesSafeReasonAndRequestID(t *testing.T) {
 	require.Contains(t, w.Body.String(), "UPSTREAM_AUTHENTICATION_FAILED")
 	require.Contains(t, w.Body.String(), "test-request")
 }
+
+func TestAIInferenceKeyRejectsAmbiguousCredentials(t *testing.T) {
+	for _, tc := range []struct {
+		name, key, authorization string
+		native, want             bool
+	}{
+		{"native key", "test-key", "", true, true},
+		{"not accepted on OpenAI", "test-key", "", false, false},
+		{"ambiguous", "test-key", "Bearer other", true, false},
+		{"whitespace", " test-key", "", true, false},
+		{"bearer fallback", "", "Bearer test-key", true, true},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			r := httptest.NewRequest("POST", "/", nil)
+			if tc.key != "" {
+				r.Header.Set("x-api-key", tc.key)
+			}
+			if tc.authorization != "" {
+				r.Header.Set("Authorization", tc.authorization)
+			}
+			_, ok := aiInferenceKey(r, tc.native)
+			require.Equal(t, tc.want, ok)
+		})
+	}
+	r := httptest.NewRequest("POST", "/", nil)
+	r.Header.Add("x-api-key", "one")
+	r.Header.Add("x-api-key", "two")
+	_, ok := aiInferenceKey(r, true)
+	require.False(t, ok)
+}

@@ -2,6 +2,7 @@ package entry
 
 import (
 	"context"
+	"errors"
 
 	"github.com/liaisonio/liaison/pkg/entry/firewall"
 	"github.com/liaisonio/liaison/pkg/entry/frontierbound"
@@ -103,9 +104,13 @@ const (
 	proxyRuntimeTCP  proxyRuntime = "tcp"
 	proxyRuntimeHTTP proxyRuntime = "http"
 	proxyRuntimeSSH  proxyRuntime = "ssh"
+	proxyRuntimeDB   proxyRuntime = "database"
 )
 
 func runtimeForProxy(protoproxy *proto.Proxy) proxyRuntime {
+	if protoproxy != nil && (protoproxy.AccessProtocol == "mysql" || protoproxy.AccessProtocol == "postgresql") {
+		return proxyRuntimeDB
+	}
 	if protoproxy != nil && protoproxy.AccessProtocol == "ssh" {
 		return proxyRuntimeSSH
 	}
@@ -116,6 +121,11 @@ func runtimeForProxy(protoproxy *proto.Proxy) proxyRuntime {
 }
 
 func (u *unifiedProxyManager) CreateProxy(ctx context.Context, protoproxy *proto.Proxy) error {
+	if runtimeForProxy(protoproxy) == proxyRuntimeDB {
+		// Native database access is not published yet. Do not silently fall
+		// back to an unencrypted TCP listener for persisted protocol values.
+		return errors.New("native database access is not enabled")
+	}
 	if runtimeForProxy(protoproxy) == proxyRuntimeSSH {
 		return u.sshGateway.CreateProxy(ctx, protoproxy)
 	}

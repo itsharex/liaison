@@ -1,0 +1,13 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {MemoryRouter,Routes,Route} from 'react-router-dom';
+import {RuntimeBridge} from '../src/lib/runtime';
+import WebData from '../src/pages/WebData';
+import WebSSH from '../src/pages/WebSSH';
+import WebDesktop from '../src/pages/WebDesktop';
+import {applyThemeOnBoot} from '../src/store/theme';
+import '../src/styles/index.css';
+if(!import.meta.env.DEV)throw Error('Development fixture only');
+applyThemeOnBoot();
+const entry=new URLSearchParams(location.search).get('entry')||'/webdata/1/connections/7';
+createRoot(document.getElementById('root')!).render(<MemoryRouter initialEntries={[entry]}><RuntimeBridge/><Routes><Route path="/webdata/:proxyId/connections/:credentialId" element={<WebData/>}/><Route path="/webssh/:proxyId/connections/:credentialId" element={<WebSSH/>}/><Route path="/webdesktop/:proxyId/connections/:credentialId" element={<WebDesktop/>}/><Route path="*" element={<output>Access list</output>}/></Routes></MemoryRouter>);

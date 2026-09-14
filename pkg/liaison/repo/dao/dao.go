@@ -209,6 +209,7 @@ type Dao interface {
 	ListWebSSHCredentialsByProxyAndUser(proxyID, userID uint) ([]*model.WebSSHCredential, error)
 	GetWebSSHCredential(proxyID, userID uint, username string) (*model.WebSSHCredential, error)
 	UpsertWebSSHCredential(credential *model.WebSSHCredential) error
+	SaveWebSFTPConnectionProfile(ctx context.Context, credential *model.WebSSHCredential, remember, create bool) error
 	TouchWebSSHCredential(proxyID, userID uint, username string) error
 	DeleteWebSSHCredential(proxyID, userID uint, username string) error
 	DeleteWebSSHCredentialByProxyID(proxyID uint) error
