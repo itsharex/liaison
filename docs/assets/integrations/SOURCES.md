@@ -1,5 +1,12 @@
 # Integration artwork
 
+README-only assets are in `readme/`. Protocol symbols use Tabler Icons (MIT):
+https://github.com/tabler/tabler-icons/tree/main/icons/outline
+`terminal-2`, `folder-up`, `bucket`, `world`, and `plug-connected`.
+Their paths are unchanged; category colors are applied without background tiles.
+Brand variants reuse the sources below with black/light foregrounds selected by
+README `<picture>` elements. Existing console assets are unchanged.
+
 MariaDB, Microsoft SQL Server and Oracle SVGs come from
 [Devicon](https://github.com/devicons/devicon), distributed under its
 [MIT license](https://github.com/devicons/devicon/blob/master/LICENSE).
