@@ -1,0 +1,14 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {MemoryRouter, Routes, Route} from 'react-router-dom';
+import WebSSH from '../src/pages/WebSSH';
+import {RuntimeBridge} from '../src/lib/runtime';
+import {applyThemeOnBoot} from '../src/store/theme';
+import {usePermissions} from '../src/store/permissions';
+import {useSession} from '../src/store/session';
+import '../src/styles/index.css';
+if (!import.meta.env.DEV) throw Error('Development fixture only');
+applyThemeOnBoot();
+useSession.getState().setToken('ssh-handoff-fixture');
+usePermissions.setState({owner:'ssh-handoff-fixture',loaded:true,grants:{'ai.access.use':true}});
+createRoot(document.getElementById('root')!).render(<MemoryRouter initialEntries={['/webssh/101/connections/7']}><RuntimeBridge/><main style={{padding:24,height:'100%'}}><Routes><Route path="/webssh/:proxyId/connections/:credentialId/*" element={<WebSSH/>}/><Route path="/webssh/sessions/:connectionReference" element={<WebSSH/>}/></Routes></main></MemoryRouter>);

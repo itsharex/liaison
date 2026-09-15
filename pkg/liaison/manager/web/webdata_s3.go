@@ -57,7 +57,9 @@ func (web *web) openWebDataS3(ctx context.Context, session *webDataSession, secr
 	}
 	target := session.target
 	endpoint := scheme + "://" + net.JoinHostPort(target.TargetHost, strconv.Itoa(target.TargetPort))
-	client, err := objectaccess.New(objectaccess.Config{Endpoint: endpoint, Region: region, AccessKey: session.username, SecretKey: secret, Writable: false}, func(ctx context.Context) (net.Conn, error) {
+	// Writes remain unavailable to executeS3 and Agent tools. The upload handler
+	// checks the dedicated feature on every request before invoking this client.
+	client, err := objectaccess.New(objectaccess.Config{Endpoint: endpoint, Region: region, AccessKey: session.username, SecretKey: secret, Writable: true}, func(ctx context.Context) (net.Conn, error) {
 		// HTTP execution has already checked session ownership. Reauthorize each
 		// fresh stream as that owner, not an absent request-context identity.
 		ctx = context.WithValue(ctx, "user_id", session.userID)

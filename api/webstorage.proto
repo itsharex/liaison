@@ -6,7 +6,8 @@ option go_package = "github.com/liaisonio/liaison/api/webstorage;webstorage";
 // Session credentials: username=Access Key, password=write-only Secret Key,
 // schema=region (default us-east-1), database=optional bucket scope,
 // tls_mode=require|disable. No arbitrary endpoint or session token in commands.
-// The initial browser integration exposes read-only enumeration only.
+// Browser commands remain read-only enumeration. Binary downloads use the
+// authenticated session endpoint below, never a presigned upstream URL.
 message Command {
   // list_buckets | list_objects
   string operation = 1;
@@ -26,4 +27,36 @@ message Entry {
 message Page {
   repeated Entry rows = 1;
   string next_token = 2;
+}
+
+// GET /api/v1/webdata/sessions/{token}/storage/download?bucket=...&key=...
+// Success: application/octet-stream attachment (maximum 16 MiB).
+// Failure: the existing JSON error envelope, without partial object bytes.
+// The session must belong to the caller and the bucket must match its scope.
+message DownloadRequest {
+  string bucket = 1;
+  string key = 2; // Exact object key; do not trim or normalize.
+}
+
+// POST /api/v1/webdata/sessions/{token}/storage/upload?bucket=...&key=...
+// Raw application/octet-stream body, at most 16 MiB. Requires webs3.files.upload.
+// Create-only using If-None-Match: *; conflicts never overwrite existing objects.
+message UploadRequest {
+  string bucket = 1;
+  string key = 2;
+}
+
+// GET /api/v1/webdata/sessions/{token}/storage/capabilities
+message StorageCapabilities {
+  bool can_upload = 1;
+  int64 transfer_limit = 2;
+}
+
+// POST /api/v1/webdata/sessions/{token}/storage/context
+// Requires ai.access.use. Browser selection is an untrusted navigation hint,
+// not an authorization grant or evidence that an object exists.
+message WorkspaceContext {
+  string bucket = 1;
+  string prefix = 2;
+  string key = 3;
 }

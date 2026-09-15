@@ -1,0 +1,71 @@
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+const assert=require('node:assert/strict');
+(async()=>{
+ const browser=await chromium.launch();
+ try {for(const locale of ['zh-CN','en-US'])for(const theme of ['dark','light']){
+  const context=await browser.newContext({viewport:{width:1440,height:1000}});
+  await context.addInitScript(({locale,theme})=>{localStorage.setItem('liaison-locale',locale);localStorage.setItem('liaison-theme-preference',theme);},{locale,theme});
+  const turns=[],errors=[];let executions=0;
+  const detail={session:{id:'session_abcdef',kind:'access',status:0},attachments:[{id:'data-fixture',access_id:101}],messages:[],turns:[],approvals:[],steps:[]};
+  await context.route('**/api/v1/**',async route=>{
+   const path=new URL(route.request().url()).pathname;let data={};
+   if(path.endsWith('/agent/status'))data={enabled:true};
+   else if(path.endsWith('/events'))return route.fulfill({contentType:'text/event-stream',body:': keepalive\n\n'});
+   else if(path.endsWith('/turns'))turns.push(route.request().postDataJSON());
+   else if(path.includes('/agent/sessions'))data=detail;
+   else if(path.endsWith('/webdata/proxies/101'))data={protocol:'mysql',proxy_name:'Data workspace',target_host:'data.example',target_port:3306,effective_status:'active',credentials:[{id:7,protocol:'mysql',name:'Fixture',username:'demo',saved:true,database:'demo'}]};
+   else if(path.endsWith('/session'))data={token:'data-fixture',protocol:'mysql'};
+   else if(path.endsWith('/metadata'))data={nodes:[]};
+   else if(path.endsWith('/execute')){executions++;data={type:'rows',columns:['id','total','password','profile'],rows:Array.from({length:30},(_,id)=>({id,total:id+10,password:'fixture-secret',profile:{api_key:'nested-secret',comment:'synthetic sample'}}))};}
+   await route.fulfill({json:{code:200,data}});
+  });
+  const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));
+  await page.goto(`${process.env.E2E_UI_URL}/e2e/data-context.html`);
+  const zh=locale==='zh-CN',button=(cn,en)=>page.getByRole('button',{name:zh?cn:en,exact:true});
+  const pure=await page.evaluate(async()=>{
+   const {resultSharePreview,RESULT_SHARE_LIMIT}=await import('/src/pages/WebData/resultShare.ts');
+   const text=resultSharePreview({rows:Array.from({length:100},()=>Object.fromEntries(Array.from({length:12},(_,i)=>['field'+i,'汉'.repeat(900)])))},'mysql');
+   const pairs=resultSharePreview({rows:[{name:'password',value:'hidden-secret'},{key:'api_token',value:'hidden-secret'}]},'redis');
+   return {size:new TextEncoder().encode(text).length,limit:RESULT_SHARE_LIMIT,value:JSON.parse(text),pairs};
+  });
+  assert(pure.size<=pure.limit&&pure.value.rows.length<=20);
+  assert(pure.value.rows.every(row=>Object.keys(row).length<=10));
+  assert(!pure.pairs.includes('hidden-secret'));
+  await page.locator('.webdata-code-editor textarea').fill('SELECT synthetic_data');await button('执行','Run').click();
+  await button('分析结果','Analyze result').click();const dialog=page.getByRole('dialog');await dialog.waitFor();
+  const preview=dialog.locator('textarea');const text=await preview.inputValue();
+  assert(!text.includes('fixture-secret')&&!text.includes('nested-secret'));assert(text.includes('[redacted]'));assert.equal(JSON.parse(text).rows.length,20);
+  await dialog.locator('summary').click();
+  await button('清空行选择','Clear row selection').click();assert(await button('放入 Agent 草稿','Add to Agent draft').isDisabled());
+  await dialog.getByRole('checkbox',{name:'password',exact:true}).uncheck();
+  await dialog.getByRole('checkbox',{name:'profile',exact:true}).uncheck();
+  await button('下一页','Next').click();await dialog.getByRole('checkbox',{name:zh?'行 25':'Row 25',exact:true}).check();
+  const chosen=JSON.parse(await preview.inputValue());assert.deepEqual(chosen.rows,[{id:24,total:34}]);
+  await button('上一页','Previous').click();await dialog.getByRole('checkbox',{name:zh?'行 2':'Row 2',exact:true}).check();
+  assert.equal(JSON.parse(await preview.inputValue()).rows.length,2);
+  await page.screenshot({path:`/tmp/result-share-selection-${locale}-${theme}.png`});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:`/tmp/result-share-selection-mobile-${locale}-${theme}.png`});await page.setViewportSize({width:1440,height:1000});
+  const projected=await page.evaluate(async()=>{const {resultSharePreview}=await import('/src/pages/WebData/resultShare.ts');return resultSharePreview({rows:[{key:'password',value:'must-stay-hidden'}]},'redis',{rows:[0],columns:['value']});});
+  assert(!projected.includes('must-stay-hidden'),'Column filtering cannot bypass pair redaction');
+  await button('取消','Cancel').click();assert.equal(turns.length,0);
+  await button('Agent','Agent').click();const composer=page.locator('.agent-workspace textarea');await composer.fill('Existing question');
+  await page.locator('.agent-workspace > header button').last().click();
+  await button('分析结果','Analyze result').click();
+  await preview.fill('汉'.repeat(5000));
+  assert(await button('放入 Agent 草稿','Add to Agent draft').isDisabled(),'Edited preview must respect the UTF-8 byte limit');
+  await preview.fill('{"sample_only":true,"rows":[{"total":42}]}');
+  await page.waitForFunction(()=>document.querySelectorAll('.liaison-toast').length===0);
+  await page.screenshot({path:`/tmp/result-share-preview-${locale}-${theme}.png`});
+  await page.setViewportSize({width:390,height:844});await page.screenshot({path:`/tmp/result-share-preview-mobile-${locale}-${theme}.png`});
+  assert(await page.evaluate(()=>document.documentElement.scrollWidth<=innerWidth+1));
+  await button('放入 Agent 草稿','Add to Agent draft').click();await dialog.waitFor({state:'hidden'});
+  await page.waitForFunction(()=>document.querySelector('.agent-workspace textarea')?.value.includes('"total":42'));
+  const draft=await composer.inputValue();assert(draft.startsWith('Existing question'));assert(draft.includes('"total":42'));assert.equal(turns.length,0);assert.equal(executions,1);
+  await page.screenshot({path:`/tmp/result-share-draft-mobile-${locale}-${theme}.png`});
+  await page.setViewportSize({width:1440,height:1000});await page.screenshot({path:`/tmp/result-share-draft-${locale}-${theme}.png`});
+  await page.waitForFunction(()=>document.querySelector('.agent-workspace footer button')?.disabled===false);
+  const response=page.waitForResponse(r=>r.url().endsWith('/turns'));await composer.press('Enter');await response;
+  assert.equal(turns.length,1);assert.equal(turns[0].prompt,draft);assert.equal(executions,1);assert.deepEqual(errors,[]);
+  await context.close();console.log('PASS explicit result preview, redaction, bounded sample, append without sending:',locale,theme);
+ }}finally{await browser.close();}
+})().catch(error=>{console.error(error);process.exit(1);});

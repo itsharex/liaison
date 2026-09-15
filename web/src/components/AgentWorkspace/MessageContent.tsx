@@ -4,23 +4,23 @@ import { Children, isValidElement, useState } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
-export function CodeBlock({ text, language = '' }: { text: string; language?: string }) {
+export function CodeBlock({ text, language = '', onPreview }: { text: string; language?: string; onPreview?: (text:string) => void }) {
   const { tr } = useI18n();
   const [copied, setCopied] = useState(false);
   return <div className="agent-code">
-    <div className="agent-code-toolbar"><span>{language || tr('输出', 'Output')}</span><button type="button" aria-label={tr('复制', 'Copy')} onClick={() => {
+    <div className="agent-code-toolbar"><span>{language || tr('输出', 'Output')}</span>{onPreview && <button className="agent-code-preview" type="button" onClick={() => onPreview(text)}>{tr('预览填入', 'Preview in editor')}</button>}<button type="button" aria-label={tr('复制', 'Copy')} onClick={() => {
       void navigator.clipboard.writeText(text).then(() => setCopied(true)).catch(() => setCopied(false));
     }}>{copied ? <Check size={13} /> : <Copy size={13} />}</button></div>
     <pre><code>{text}</code></pre>
   </div>;
 }
 
-export function MessageContent({ text }: { text: string }) {
+export function MessageContent({ text, onPreviewCode }: { text: string; onPreviewCode?: (text:string) => void }) {
   return <div className="agent-markdown"><ReactMarkdown remarkPlugins={[remarkGfm]} skipHtml components={{
     pre({children}) {
       const child = Children.toArray(children)[0];
       if (!isValidElement<{children?: React.ReactNode; className?: string}>(child)) return <pre>{children}</pre>;
-      return <CodeBlock language={child.props.className?.replace(/^language-/, '')} text={String(child.props.children ?? '').replace(/\n$/, '')}/>;
+      return <CodeBlock onPreview={onPreviewCode} language={child.props.className?.replace(/^language-/, '')} text={String(child.props.children ?? '').replace(/\n$/, '')}/>;
     },
     table({children}) { return <div className="agent-markdown-table"><table>{children}</table></div>; },
     a({href, children}) { return href ? <a href={href} target="_blank" rel="noopener noreferrer">{children}</a> : <span>{children}</span>; },

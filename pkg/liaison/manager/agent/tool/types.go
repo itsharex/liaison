@@ -42,6 +42,7 @@ const (
 	ProtocolPostgreSQL    Protocol = "postgresql"
 	ProtocolRedis         Protocol = "redis"
 	ProtocolMemcached     Protocol = "memcached"
+	ProtocolS3            Protocol = "s3"
 	ProtocolMongoDB       Protocol = "mongodb"
 	ProtocolRDP           Protocol = "rdp"
 	ProtocolVNC           Protocol = "vnc"

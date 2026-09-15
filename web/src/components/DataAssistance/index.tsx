@@ -1,11 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
-import { Sparkles, X } from 'lucide-react';
+import { Sparkles, ScanText, X } from 'lucide-react';
 import { request } from '@/api/client';
 import { useI18n } from '@/i18n';
 import './index.less';
 
 // Separate, ephemeral completion context. Never sends chat history or executes a query.
-export default function DataAssistance({ handleId, text, onApply }: { handleId: string; text: string; onApply: (text: string) => void }) {
+export default function DataAssistance({ handleId, text, onApply, onReview }: { handleId: string; text: string; onApply: (text: string) => void; onReview?: () => void }) {
   const { tr } = useI18n();
   const [candidate, setCandidate] = useState('');
   const [busy, setBusy] = useState(false);
@@ -48,6 +48,7 @@ export default function DataAssistance({ handleId, text, onApply }: { handleId: 
   return <section className="data-assistance" aria-label={tr('查询辅助', 'Query assistance')}>
     <div className="data-assistance-toolbar">
       <button type="button" disabled={busy || !text.trim()} onClick={() => void suggest()}><Sparkles size={13} />{busy ? tr('生成中…', 'Suggesting…') : tr('补全草稿', 'Complete draft')}</button>
+      {onReview && <button type="button" disabled={!text.trim()} onClick={onReview}><ScanText size={13} />{tr('审阅草稿', 'Review draft')}</button>}
       <small>{tr('仅发送编辑器草稿，不自动执行', 'Shares only the editor draft. Never auto-executes.')}</small>
       {(busy || candidate) && <button type="button" aria-label={tr('忽略建议', 'Dismiss suggestion')} onClick={cancel}><X size={13} /></button>}
     </div>

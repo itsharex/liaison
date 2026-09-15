@@ -22,6 +22,12 @@ import {ReferenceTags,useResourceMentions} from './ResourceMentions';
 import type {AgentModelSelection,AgentResourceReference} from '@/services/agent';
 
 type AgentWorkspaceProps = {
+  onPreviewCode?: (text:string) => void;
+  beforeSend?: () => Promise<void>;
+  contextLabel?: string;
+  contextDescription?: string;
+  appendDraft?: {id: string; text: string};
+  onDraftAppended?: () => void;
   recoveredDraft?: {prompt:string;references:AgentResourceReference[]};
   initialModelSelection?: AgentModelSelection;
   accessSessionId?: string;
@@ -60,7 +66,7 @@ export default function AgentWorkspace(props: AgentWorkspaceProps) {
   return allowed ? <AgentWorkspaceContent {...props} /> : null;
 }
 
-function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docked = false, dockBreakpoint = 850, managementSessionId, initialBusy = false, accessSessionId, connectionId, accessId, connectionAvailable = true, onSessionReady, initialModelSelection, recoveredDraft }: AgentWorkspaceProps) {
+function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docked = false, dockBreakpoint = 850, managementSessionId, initialBusy = false, accessSessionId, connectionId, accessId, connectionAvailable = true, onSessionReady, initialModelSelection, recoveredDraft, beforeSend, contextLabel, contextDescription, appendDraft, onDraftAppended, onPreviewCode }: AgentWorkspaceProps) {
   const { tr } = useI18n();
   const [compact, setCompact] = useState(() => window.matchMedia(`(max-width: ${dockBreakpoint}px)`).matches);
   useEffect(() => {
@@ -99,6 +105,7 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
     input.style.height = `${Math.min(144, input.scrollHeight)}px`;
   }, [prompt, open]);
   const sessionIDRef = useRef('');
+  const draftSessionRef = useRef('');
   const handleRef = useRef(handleId);
   handleRef.current = handleId;
   const pendingSessionRef = useRef<{ handle: string; promise: ReturnType<typeof createAgentSession> }>();
@@ -111,6 +118,7 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
 
   useEffect(() => {
     sessionIDRef.current = '';
+    draftSessionRef.current = '';
     setDetail(undefined);
     setStreamText('');
     setError('');
@@ -118,7 +126,29 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
     setPrompt('');
   }, [handleId]);
 
+  useEffect(() => {
+    const requestedID = managementSessionId || accessSessionId;
+    if (!requestedID) return;
+    if (draftSessionRef.current && draftSessionRef.current !== requestedID) {
+      setPrompt('');
+      mentions.reset();
+      setSending(false);
+      setStreamText('');
+      setError('');
+      selectionRestored.current = false;
+      setModelSelection(initialModelSelection);
+    }
+    draftSessionRef.current = requestedID;
+  }, [managementSessionId, accessSessionId]);
+
   useEffect(()=>{if(recoveredDraft){setPrompt(recoveredDraft.prompt);mentions.setReferences(recoveredDraft.references);}},[recoveredDraft]);
+  const appendedDraftID = useRef('');
+  useEffect(() => {
+    if (!open || !appendDraft || appendedDraftID.current === appendDraft.id) return;
+    appendedDraftID.current = appendDraft.id;
+    setPrompt(current => current ? `${current}\n\n${appendDraft.text}` : appendDraft.text);
+    onDraftAppended?.();
+  }, [open, appendDraft, onDraftAppended]);
 
   useEffect(() => {
     const requestedID = managementSessionId || accessSessionId;
@@ -167,8 +197,9 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
     }
     pendingSessionRef.current.promise
       .then((response) => {
-        if (handleRef.current !== handleId || !response.data) return;
+        if (!active || handleRef.current !== handleId || !response.data) return;
         sessionIDRef.current = response.data.session.id;
+        draftSessionRef.current = response.data.session.id;
         if (active) onSessionReady?.(response.data.session.id);
         if (active) setDetail(response.data);
       })
@@ -248,7 +279,7 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
     () => (detail?.approvals || []).filter((approval) => approval.status === 0),
     [detail?.approvals],
   );
-  const busy = initialBusy || sending || Boolean(activeTurn && !terminalTurnStatuses.has(activeTurn.status));
+  const busy = initialBusy || loading || sending || Boolean(activeTurn && !terminalTurnStatuses.has(activeTurn.status));
 
   const send = async () => {
     const value = prompt.trim();
@@ -261,6 +292,8 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
     setStreamText('');
     setError('');
     try {
+      await beforeSend?.();
+      if (sessionIDRef.current !== sessionId) return;
       await runAgentTurn(sessionId, value, managementSessionId ? modelSelection : undefined, managementSessionId ? references : undefined);
       await refresh(sessionId);
     } catch (reason: any) {
@@ -317,6 +350,7 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
           <button type="button" onClick={onClose} aria-label={tr('关闭', 'Close')}><X size={18} /></button>
         </header>
         <div className="agent-workspace-body" ref={bodyRef}>
+          {contextLabel && <div className="agent-workspace-context" title={contextLabel}>{tr('当前上下文','Current context')} · {contextLabel}<small>{contextDescription || tr('仅位置与元数据，不自动读取文件内容。','Location and metadata only. File contents are not read automatically.')}</small></div>}
           {loading ? <div className="agent-workspace-state"><span className="ui-spinner" />{tr('正在准备上下文…', 'Preparing context…')}</div> : null}
           {!loading && !detail && !error ? <div className="agent-workspace-state">{tr('当前连接不可用于 Agent。', 'Agent is unavailable for this connection.')}</div> : null}
           {detail && detail.messages.filter((message) => message.value.role !== 'system').length === 0 ? (
@@ -331,7 +365,7 @@ function AgentWorkspaceContent({ open, handleId, title, protocol, onClose, docke
               {message.value.role === 'tool' ? <ToolMessage name={message.value.tool_name || 'tool'} content={message.value.content || ''} /> : <>
                 <span>{message.value.role === 'user' ? tr('你', 'You') : 'Agent'}</span>
                 {message.value.references && <ReferenceTags references={message.value.references}/>}
-                {message.value.content && <MessageContent text={message.value.content} />}
+                {message.value.content && <MessageContent text={message.value.content} onPreviewCode={message.value.role === 'assistant' && !busy && connectionAvailable ? onPreviewCode : undefined} />}
               </>}
             </article>
           ))}

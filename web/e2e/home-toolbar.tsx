@@ -1,0 +1,17 @@
+import React from 'react';
+import {createRoot} from 'react-dom/client';
+import {MemoryRouter,Routes,Route} from 'react-router-dom';
+import {AppLayout} from '../src/components/layout/AppLayout';
+import ManagementAgent from '../src/pages/ManagementAgent';
+import {RuntimeBridge} from '../src/lib/runtime';
+import {useSession} from '../src/store/session';
+import {usePermissions} from '../src/store/permissions';
+import {applyThemeOnBoot} from '../src/store/theme';
+import '../src/styles/index.css';
+if(!import.meta.env.DEV)throw Error('Development fixture only');
+applyThemeOnBoot();
+useSession.getState().setToken('toolbar-fixture');
+void useSession.getState().setInitialState({currentUser:{id:1,name:'Very long account display name for layout testing'} as API.CurrentUser});
+usePermissions.setState({owner:'toolbar-fixture',loaded:true,grants:{'ai.home.use':true}});
+const entry=new URLSearchParams(location.search).has('selected')?'/agent/sessions/session_abcdef':'/';
+createRoot(document.getElementById('root')!).render(<MemoryRouter initialEntries={[entry]}><RuntimeBridge/><Routes><Route element={<AppLayout/>}><Route path="/" element={<ManagementAgent/>}/><Route path="/agent/sessions/:agentSessionId" element={<ManagementAgent/>}/></Route></Routes></MemoryRouter>);

@@ -32,15 +32,16 @@ export function attachTerminalCompletion(
   let timer: ReturnType<typeof setTimeout> | undefined;
   let abort: AbortController | undefined;
   let scheduled = '';
+  let inputEpoch = 0;
   const hide = () => {
     revision++; clearTimeout(timer); abort?.abort(); abort = undefined;
     scheduled = ''; view = null; publish(null); status('idle');
   };
   const suspend = () => { navigationPending = false; boundary.suspend(); hide(); };
-  const readBuffer = (allowBlocked = false) => {
+  const readBuffer = (allowBlocked = false, allowBlur = false) => {
     const buffer = terminal.buffer.active;
     if (!boundary.editing || (boundary.blocked && !allowBlocked) || composing || terminal.hasSelection()
-      || document.activeElement !== terminal.textarea
+      || (!allowBlur && document.activeElement !== terminal.textarea)
       || buffer.type !== 'normal' || !marker || marker.isDisposed
       || buffer.baseY + buffer.cursorY !== marker.line
       || buffer.viewportY !== buffer.baseY || buffer.cursorX < boundary.column) return undefined;
@@ -114,6 +115,7 @@ export function attachTerminalCompletion(
   const parser = terminal.parser.registerOscHandler(633, data => {
     // Metadata from older integrations is never used as a candidate source.
     if (!['A', 'B', 'C', 'D'].includes(data) && !data.startsWith('D;')) return true;
+    inputEpoch++;
     const buffer = terminal.buffer.active;
     boundary.sequence(data, buffer.baseY + buffer.cursorY, buffer.cursorX);
     if (/^D;\d+$/.test(data)) {
@@ -156,6 +158,7 @@ export function attachTerminalCompletion(
     return true;
   });
   const data = terminal.onData(value => {
+    inputEpoch++;
     // Recover only after remote echo proves we are back at the end of the same
     // single-line prompt. Do not guess text from cursor/history key sequences.
     if (boundary.editing && /^(?:\x1b\[[ABCDHF]|\x1bO[HF]|\x1b\[3~|\x15|\x17)$/.test(value)) {
@@ -188,6 +191,17 @@ export function attachTerminalCompletion(
   terminal.textarea?.addEventListener('focus', refresh);
   return {
     accept,
+    // No readline shortcuts: only append at a verified empty shell prompt.
+    captureEmptyPrompt() {
+      return readBuffer(false, true) === '' && expectedEcho === undefined ? inputEpoch : undefined;
+    },
+    insertAtEmptyPrompt(text: string, epoch: number) {
+      if (epoch !== inputEpoch || readBuffer(false, true) !== '' || expectedEcho !== undefined || !validInsertion(text) || !text.trim()) return false;
+      inputEpoch++; hide(); expectedEcho = text; dismissed = text;
+      send(text); // Deliberately no Enter, newline, or terminal control sequence.
+      terminal.focus();
+      return true;
+    },
     suggest: () => requestSuggestion(true),
     setAutomatic(enabled: boolean) { automatic = enabled; hide(); if (enabled) refresh(); },
     reset() { automatic = false; hide(); },

@@ -172,6 +172,11 @@ func NewWebServerWithListener(conf *config.Configuration, controlPlane controlpl
 	srv.HandleFunc("/api/v1/webdata/sessions/{token}/execute", web.handleWebDataSessionHTTP)
 	srv.HandleFunc("/api/v1/webdata/sessions/{token}/metadata", web.handleWebDataMetadataHTTP)
 	srv.HandleFunc("/api/v1/webdata/sessions/{token}/object", web.handleWebDataObjectHTTP)
+	srv.HandleFunc("/api/v1/webdata/sessions/{token}/storage/download", web.handleWebStorageDownloadHTTP)
+	srv.HandleFunc("/api/v1/webdata/sessions/{token}/storage/upload", web.handleWebStorageHTTP)
+	srv.HandleFunc("/api/v1/webdata/sessions/{token}/storage/capabilities", web.handleWebStorageHTTP)
+	srv.HandleFunc("/api/v1/webdata/sessions/{token}/storage/context", web.handleWebStorageHTTP)
+	srv.HandleFunc("/api/v1/webdata/sessions/{token}/context", web.handleWebDataContextHTTP)
 	srv.HandleFunc("/api/v1/webdata/sessions/{token}", web.handleWebDataSessionHTTP)
 
 	// Audit

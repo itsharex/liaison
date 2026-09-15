@@ -19,3 +19,15 @@ boundary.suspend(); assert(boundary.blocked);
 boundary.sequence('B', 3, 8); assert(!boundary.blocked);
 boundary.sequence('C', 3, 8); assert(!boundary.editing);
 console.log('PASS AI completion validation and prompt boundaries');
+const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
+(async()=>{
+ const browser=await chromium.launch();
+ try {
+  const page=await browser.newPage();
+  await page.goto(`${process.env.E2E_UI_URL||'http://127.0.0.1:8001'}/e2e/terminal-completion.html`);
+  await page.waitForFunction(()=>/^(PASS|FAIL):/.test(document.querySelector('#result')?.textContent||''),{},{timeout:30000});
+  const result=await page.locator('#result').innerText();
+  if(!result.startsWith('PASS:'))throw Error(result);
+  console.log(result);console.log('PASS empty-prompt handoff: no Enter, no overwrite, stale/replay/running/alternate-screen rejection');
+ }finally{await browser.close();}
+})().catch(e=>{console.error(e);process.exitCode=1;});

@@ -13,6 +13,7 @@ import (
 	"github.com/jumboframes/armorigo/log"
 	"github.com/liaisonio/liaison/pkg/liaison/manager/accesssession"
 	"github.com/liaisonio/liaison/pkg/liaison/manager/controlplane"
+	"github.com/liaisonio/liaison/pkg/liaison/manager/objectaccess"
 	"golang.org/x/crypto/ssh"
 )
 
@@ -77,6 +78,18 @@ func (handle *webDataAgentHandle) Schema(ctx context.Context, path []string) (js
 	handle.session.mu.Lock()
 	defer handle.session.mu.Unlock()
 
+	if handle.session.protocol == "s3" {
+		content, err := handle.storageSchema(ctx, path)
+		if errors.Is(err, objectaccess.ErrInvalid) {
+			// A malformed read-only tool argument is recoverable. Authorization,
+			// transport and closed-session errors must still stop execution.
+			return json.Marshal(map[string]any{
+				"error":      "Invalid S3 metadata path. The first element must be the literal string \"bucket\", not the bucket name. Use retry_path exactly, or [] to inspect the bucket scope. No operation was performed.",
+				"retry_path": handle.session.storageListingPath(),
+			})
+		}
+		return content, err
+	}
 	query := webDataMetadataRequest{}
 	if len(path) > 0 {
 		query.NodeType = strings.TrimSpace(path[0])
@@ -88,7 +101,7 @@ func (handle *webDataAgentHandle) Schema(ctx context.Context, path []string) (js
 		query.Schema = strings.TrimSpace(path[2])
 	}
 	if len(path) > 3 {
-		query.Name = strings.TrimSpace(path[3])
+		query.Name = path[3] // Object identifiers, especially Redis keys, are exact.
 	}
 	// Object inspection reuses the console's bounded, read-only metadata path.
 	if query.NodeType == "table" || query.NodeType == "collection" || query.NodeType == "key" || query.NodeType == "index" {
@@ -112,7 +125,7 @@ func (handle *webDataAgentHandle) Schema(ctx context.Context, path []string) (js
 	if err != nil {
 		return nil, err
 	}
-	return json.Marshal(map[string]any{"nodes": nodes, "protocol": handle.session.protocol, "current_database": webDataAuditSessionDatabase(handle.session)})
+	return json.Marshal(map[string]any{"nodes": nodes, "protocol": handle.session.protocol, "current_database": webDataAuditSessionDatabase(handle.session), "browser_context": handle.session.dataContext, "context_source": "untrusted browser navigation; not proof of existence or authorization; no editor draft, result rows or values included"})
 }
 
 func (handle *webDataAgentHandle) Query(ctx context.Context, statement string) (json.RawMessage, error) {
@@ -178,6 +191,10 @@ func (web *web) registerWebDataAgentSession(session *webDataSession) error {
 	if session == nil || session.target == nil {
 		return errors.New("webdata session target is required")
 	}
+	capabilities := []string{"data.schema", "data.query"}
+	if session.protocol == "s3" {
+		capabilities = []string{"data.schema"}
+	}
 	descriptor, unregister, err := web.accessSessions.Register(accesssession.Handle{
 		Descriptor: accesssession.Descriptor{
 			ID:            session.token,
@@ -185,7 +202,7 @@ func (web *web) registerWebDataAgentSession(session *webDataSession) error {
 			AccessID:      session.proxyID,
 			ApplicationID: session.target.ApplicationID,
 			Protocol:      accesssession.Protocol(session.protocol),
-			Capabilities:  []string{"data.schema", "data.query"},
+			Capabilities:  capabilities,
 		},
 		Data: &webDataAgentHandle{web: web, session: session},
 	})

@@ -1,0 +1,14 @@
+syntax = "proto3";
+package liaison.webdata_context;
+option go_package = "github.com/liaisonio/liaison/api/webdata_context;webdata_context";
+
+// POST /api/v1/webdata/sessions/{token}/context. Requires ai.access.use and
+// ownership of an active connection. Replaces the complete navigation hint.
+// Does not change database selection, grant access, execute queries or read values.
+// Strict JSON: unknown fields and payloads over 8 KiB are rejected.
+message WorkspaceContext {
+  string database = 1;
+  string schema = 2;
+  string object_type = 3; // empty | database | schema | table | collection | index | key
+  string name = 4; // Exact object name, including whitespace in keys.
+}
