@@ -19,7 +19,7 @@ Selbst gehostet, mit sicherer API-Freigabe, Browser-Arbeitsbereichen und kontext
 
 [简体中文](./README_zh.md) | [English](./README.md) | [日本語](./README_ja.md) | [한국어](./README_ko.md) | [Español](./README_es.md) | [Français](./README_fr.md) | Deutsch
 
-![Dashboard](docs/pages/home_en.png)
+![Liaison: sicherer Zugriff auf lokale Rechenressourcen und Anwendungen. Demonstration mit Beispieldaten.](docs/assets/readme/liaison-product-demo-full-v2.gif)
 
 | Jellyfin (Heimfilme überall streamen) | OpenClaw (Heim-KI überall nutzen) |
 |:---:|:---:|
@@ -33,6 +33,8 @@ Selbst gehostet, mit sicherer API-Freigabe, Browser-Arbeitsbereichen und kontext
 
 Verbinden Sie private Server, Datenbanken, Desktops und Web-Apps. Arbeiten Sie mit einem KI-Agenten in SSH- und Datenbanksitzungen oder fragen Sie auf der Startseite nach verfügbaren Connectoren, Geräten und Anwendungen. Selbst gehostet, mit benutzergebundenen Werkzeugrechten.
 
+- 🤖 **Zugriff auf lokale LLMs** — Teilen Sie lokale Modelle außerhalb Ihres Netzwerks über authentifizierte APIs und einen Playground im Browser.
+- 🔑 **Kontrollierte API-Freigabe** — Beschränken Sie Schlüssel auf bestimmte Modelle, legen Sie Token-Kontingente fest, widerrufen Sie Zugriffe und prüfen Sie Nutzung und Anfrageprotokolle.
 - ✨ **KI im Arbeitsablauf** — Der Agent Ihrer Verbindung hilft beim Lesen der Terminalausgabe, Entwerfen von Befehlen und Abfragen von Datenbanken. Genehmigungspflichtige Vorgänge warten auf Ihre Bestätigung.
 - 💬 **Ressourcen im Dialog** — Finden Sie Connectoren, Geräte und Anwendungen mit dem Startseiten-Agenten innerhalb Ihrer Benutzerrechte.
 
@@ -148,6 +150,10 @@ Liaison nutzt eine zentralisierte Architektur, bei der Frontier alle Konnektoren
 ---
 
 ## Feature-Showcase
+
+### Zugriff auf lokale LLMs
+
+![Liaison-Konsole mit Modellzugriff, Client- und Upstream-Protokollen, Modellnamen und API-Schlüsselauthentifizierung. Beispielkonfiguration.](docs/assets/readme/local-llm-access-models-dark-v2.png)
 
 | Feature | Screenshot |
 |:---:|:---:|
