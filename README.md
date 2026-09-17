@@ -21,17 +21,18 @@ English | [简体中文](./README_zh.md) | [日本語](./README_ja.md) | [한국
 
 [Website](https://liaison.cloud) · [Docs](https://liaison.cloud/docs/get-started/introduction) · [Features](#features) · [Install](#install) · [Access protocols](#supported-access-protocols) · [Agent models](#agent-model-providers) · [Product tour](#product-tour)
 
-![Liaison overview with multi-application traffic](docs/assets/readme/overview-dark-v3.png)
+![Liaison: secure access to local compute and applications. Illustrative demo with sample data.](docs/assets/readme/liaison-product-demo-full-v2.gif)
 
 ## Features
 
+- 🤖 **Local LLM access** — Share local models beyond your network through authenticated APIs and a browser Playground.
+- 🔑 **Controlled API sharing** — Scope keys to models, set Token quotas, revoke access, and review usage and request records.
 - ✨ **AI in your workflow** — Inspect terminal output, draft commands, and query databases with an Agent tied to your connection. Tool access follows user permissions; operations requiring approval wait for your confirmation.
 - 💬 **Ask about your resources** — Find and inspect your connectors, devices, and applications from the home Agent. Resource visibility stays scoped to the signed-in user.
 - 🔌 **Outbound-only connectors** — connect private networks without opening inbound ports on them.
 - 🔐 **Application access** — publish TCP, HTTP, HTTPS, WebSocket, and SSH services with per-access controls.
 - 🖥️ **Browser workspaces** — WebSSH, WebSFTP, WebRDP, WebVNC, MySQL, MariaDB, PostgreSQL, SQL Server, Oracle, ClickHouse, MongoDB, Elasticsearch, OpenSearch, Redis, and Memcached.
 - 📁 **Files and objects** — Manage remote files with WebSFTP. Browse buckets, prefixes, and object metadata from S3-compatible services with WebS3 (currently read-only).
-- 🤖 **Private model access** — OpenAI-compatible, Anthropic Messages, and Ollama upstreams with scoped API keys, model mappings, usage records, and per-key Token quotas.
 - 🔎 **Application discovery** — scan connector devices and register discovered services from the console.
 - 👥 **Identity and access management** — organize users and resources, with Casbin-backed authorization.
 - 🛡️ **Firewall policies** — restrict TCP and HTTP access by source IP and CIDR.
@@ -82,6 +83,10 @@ Configure the model behind Liaison’s built-in Agent, independently of service 
 Eight provider presets, plus custom OpenAI-compatible services.
 
 ## Product tour
+
+### Local LLM access
+
+![Liaison console showing model access, client and upstream protocols, model aliases and API key authentication. Illustrative configuration.](docs/assets/readme/local-llm-access-models-dark-v2.png)
 
 ### Web SSH
 
