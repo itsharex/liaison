@@ -40,6 +40,9 @@ const assert=require('node:assert/strict');
   await page.waitForFunction(()=>document.querySelector('.agent-workspace textarea')?.value.includes('User-reviewed editor snapshot'));
   const draft=await composer.inputValue();assert(draft.startsWith('Existing question'));assert(draft.includes(original)&&draft.includes(protocol)&&!draft.includes('synthetic-private-note'));assert.equal(turns.length,0);assert.equal(executions,0);assert.equal(suggestions,0);
   await page.setViewportSize({width:1440,height:1000});assert.equal(await editor.inputValue(),original+' /* synthetic-private-note */');
+  // Wait for React to move the mobile portal back into the dock before typing.
+  // Otherwise Enter can target the textarea that is about to be detached.
+  await page.locator('.agent-workspace-root.is-docked textarea').waitFor();
   await page.waitForFunction(()=>document.querySelector('.agent-workspace footer button')?.disabled===false);
   const sent=page.waitForResponse(r=>r.url().endsWith('/turns'));await composer.press('Enter');await sent.catch(async error=>{await page.screenshot({path:'/tmp/draft-review-send-failure.png'});console.error({protocol,locale,theme,composer:await composer.inputValue(),workspace:await page.locator('.agent-workspace').innerText(),errors});throw error;});
   assert.equal(turns.length,1);assert.equal(turns[0].prompt,draft);assert.equal(executions,0);assert.equal(suggestions,0);assert.deepEqual(errors,[]);
