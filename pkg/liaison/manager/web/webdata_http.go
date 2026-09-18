@@ -208,6 +208,8 @@ type webDataSession struct {
 	searchPassword   string
 	cacheDial        func(context.Context) (net.Conn, error)
 	objectClient     *objectaccess.Client
+	storageContext   storageWorkspaceContext // guarded by mu
+	dataContext      dataWorkspaceContext    // guarded by mu; untrusted navigation only
 	mu               sync.Mutex
 	agentGeneration  uint64
 	agentUnregister  func()
@@ -554,10 +556,8 @@ func (web *web) handleCreateWebDataSessionHTTP(w http.ResponseWriter, r *http.Re
 		writeJSON(w, http.StatusInternalServerError, map[string]any{"code": http.StatusInternalServerError, "message": "failed to create session"})
 		return
 	}
-	if created.protocol != "s3" {
-		if err := web.registerWebDataAgentSession(created); err != nil {
-			log.Warnf("webdata agent session registration failed: proxy_id=%d user_id=%d protocol=%s err=%v", proxyID, user.ID, req.Protocol, err)
-		}
+	if err := web.registerWebDataAgentSession(created); err != nil {
+		log.Warnf("webdata agent session registration failed: proxy_id=%d user_id=%d protocol=%s err=%v", proxyID, user.ID, req.Protocol, err)
 	}
 	web.recordWebDataAudit(r, target, user.ID, "open_session", req.Protocol, webDataAuditDatabase(&req), "", true, 0, elapsed, "")
 	writeJSON(w, http.StatusOK, map[string]any{

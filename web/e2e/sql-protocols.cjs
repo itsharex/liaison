@@ -16,8 +16,9 @@ const creationTypes = access.ACCESS_CREATION_TYPES.map(item => item.value);
 const webTypes = creationTypes.filter(access.isWebAccessType);
 assert.deepEqual(creationTypes.slice(0, webTypes.length), webTypes);
 assert.equal(new Set(creationTypes).size, access.ACCESS_TYPES.length);
-for (const type of ['ssh', 'rdp', 'vnc']) {
-  assert.deepEqual(access.accessTypesForApplication(type).map(item => item.value), ['web'+type, 'tcp', type]);
+assert.deepEqual(access.accessTypesForApplication('ssh').map(item => item.value), ['webssh', 'websftp', 'tcp', 'ssh']);
+for (const type of ['rdp', 'vnc']) {
+  assert.deepEqual(access.accessTypesForApplication(type).map(item => item.value), ['web'+type, 'tcp']);
 }
 assert.deepEqual(access.accessTypesForApplication('tcp').map(item => item.value), ['tcp']);
 assert.deepEqual(access.accessTypesForApplication('http').map(item => item.value), ['tcp', 'http']);

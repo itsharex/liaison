@@ -179,10 +179,10 @@ export function AppLayout() {
             </span>}
           </Link>
         </div>
-        <div className="liaison-global-actions">
-          {!isHome && <HeaderQuickSettings />}
+        {!isHome && <div className="liaison-global-actions">
+          <HeaderQuickSettings />
           <HeaderUser />
-        </div>
+        </div>}
       </header>
       <div className="liaison-shell">
         <Sidebar />

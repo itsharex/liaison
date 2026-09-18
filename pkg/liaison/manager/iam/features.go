@@ -15,6 +15,7 @@ const (
 	FeaturePermissions   = "permissions.manage"
 	FeatureFilesRead     = "webssh.files.read"
 	FeatureFilesUpload   = "webssh.files.upload"
+	FeatureStorageUpload = "webs3.files.upload"
 )
 
 type Feature struct {
@@ -24,6 +25,7 @@ type Feature struct {
 
 var featureCatalog = []Feature{
 	{FeatureFilesRead, "文件浏览"}, {FeatureFilesUpload, "文件上传"},
+	{FeatureStorageUpload, "对象上传"},
 	{FeatureAudit, "日志与审计"},
 	{FeatureHomeAI, "首页 AI"}, {FeatureAccessAI, "访问层 AI"},
 	{FeatureSettingsRead, "查看全局配置"}, {FeatureSettingsWrite, "修改全局配置"},

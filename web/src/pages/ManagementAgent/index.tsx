@@ -1,4 +1,5 @@
 import AgentWorkspace from '@/components/AgentWorkspace';
+import {HeaderUser} from '@/components/layout/HeaderUser';
 import ModelSelector from '@/components/AgentWorkspace/ModelSelector';
 import {useResourceMentions} from '@/components/AgentWorkspace/ResourceMentions';
 import type {AgentModelSelection,AgentResourceReference} from '@/services/agent';
@@ -94,6 +95,7 @@ export default function ManagementAgent() {
         <button aria-expanded={historyOpen} aria-controls="management-history" onClick={() => setHistoryOpen(v => !v)}><History size={16} />{tr('历史会话', 'History')}</button>
         {selected && <button disabled={creating} onClick={startNewChat}><Plus size={16} />{tr('新会话', 'New chat')}</button>}
       </div>
+      <HeaderUser />
     </div>
     <div className="management-agent-layout">
       <nav id="management-history" hidden={!historyOpen} className="management-agent-history" aria-label={tr('会话历史', 'Chat history')}>

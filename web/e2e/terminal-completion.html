@@ -45,6 +45,18 @@ try{
  await write('nd');await sleep(900);check(calls>partial,'Matching remote echo permits AI');
  await write('\x1b[?1049h');await sleep(900);check(!view,'No alternate screen suggestions');await write('\x1b[?1049l');
  controller.reset();await prompt();await write('find .');controller.suggest();await sleep();
+ await prompt();term.blur();const epoch=controller.captureEmptyPrompt();check(epoch!==undefined,'Capture empty prompt while preview owns focus');
+ check(!controller.insertAtEmptyPrompt('echo one\necho two',epoch),'Reject multiline handoff');
+ check(!controller.insertAtEmptyPrompt('\x1b[31m',epoch),'Reject handoff control sequence');
+ const beforeInsert=sent.length;check(controller.insertAtEmptyPrompt('echo hello',epoch),'Insert at verified empty prompt');
+ check(sent.length===beforeInsert+1 && sent.at(-1)==='echo hello','Handoff sends exact text without Enter');
+ check(!controller.insertAtEmptyPrompt('again',epoch),'Reject replay before echo');
+ await prompt();const stale=controller.captureEmptyPrompt();term.input('x',true);await write('x');
+ check(!controller.insertAtEmptyPrompt('replacement',stale),'Never overwrite changed input');
+ check(controller.captureEmptyPrompt()===undefined,'No handoff with existing draft');
+ await prompt();const oldPrompt=controller.captureEmptyPrompt();await prompt();check(!controller.insertAtEmptyPrompt('stale',oldPrompt),'Reject previous prompt');
+ const running=controller.captureEmptyPrompt();await write('\x1b]633;C\x07');check(!controller.insertAtEmptyPrompt('unsafe',running),'Reject running command');
+ await prompt();const normal=controller.captureEmptyPrompt();await write('\x1b[?1049h');check(!controller.insertAtEmptyPrompt('unsafe',normal),'Reject alternate screen');await write('\x1b[?1049l');
  window.terminalCompletionTest={sent,controller,term};
  document.querySelector('#result').textContent='PASS: opt-in, provider-only, suffix, cancellation, stale response, controls, empty/error, debounce, paste, echo, alternate screen';
 }catch(error){document.querySelector('#result').textContent='FAIL: '+error.message;throw error}

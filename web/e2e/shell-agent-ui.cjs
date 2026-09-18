@@ -4,8 +4,9 @@ const {chromium}=require(process.env.PLAYWRIGHT_MODULE||'playwright');
  const browser=await chromium.launch();
  try{
   const page=await browser.newPage({viewport:{width:1280,height:760}});const errors=[];
+  await page.addInitScript(()=>localStorage.setItem('liaison-locale','zh-CN'));
   page.on('pageerror',e=>errors.push(e.message));
-  await page.goto((process.env.UI_FIXTURE_URL||'http://127.0.0.1:8017')+'/e2e/shell-agent-ui.html');
+  await page.goto((process.env.E2E_UI_URL||process.env.UI_FIXTURE_URL||'http://127.0.0.1:8017')+'/e2e/shell-agent-ui.html');
   await page.getByLabel('Shell Agent',{exact:true}).waitFor();
   assert.equal(await page.getByText('Shell Agent',{exact:true}).count(),1);
   assert.equal(await page.getByText('AI 命令提示',{exact:true}).count(),0);
