@@ -19,7 +19,7 @@ Auto-hébergé, avec partage sécurisé des API, espaces de travail dans le navi
 
 [简体中文](./README_zh.md) | [English](./README.md) | [日本語](./README_ja.md) | [한국어](./README_ko.md) | [Español](./README_es.md) | Français | [Deutsch](./README_de.md)
 
-![Dashboard](docs/pages/home_en.png)
+![Liaison : accès sécurisé aux ressources de calcul locales et aux applications. Démonstration avec des données fictives.](docs/assets/readme/liaison-product-demo-full-v2.gif)
 
 | Jellyfin (diffuser vos films maison partout) | OpenClaw (utiliser votre IA maison partout) |
 |:---:|:---:|
@@ -33,6 +33,8 @@ Auto-hébergé, avec partage sécurisé des API, espaces de travail dans le navi
 
 Connectez serveurs, bases de données, bureaux et applications privés. Travaillez avec un Agent IA dans vos sessions SSH et de bases de données, ou consultez vos connecteurs, appareils et applications depuis l’accueil. Auto-hébergé, avec des outils soumis aux permissions utilisateur.
 
+- 🤖 **Accès aux LLM locaux** — Partagez vos modèles locaux hors de votre réseau via des API authentifiées et un Playground dans le navigateur.
+- 🔑 **Partage contrôlé des API** — Limitez les clés à certains modèles, définissez des quotas de Token, révoquez les accès et consultez l’utilisation et les journaux des requêtes.
 - ✨ **L’IA dans votre travail** — L’Agent lié à la connexion aide à lire la sortie du terminal, rédiger des commandes et interroger les bases. Les opérations soumises à approbation attendent votre confirmation.
 - 💬 **Interrogez vos ressources** — Retrouvez connecteurs, appareils et applications avec l’Agent d’accueil, dans le périmètre autorisé à l’utilisateur.
 
@@ -148,6 +150,10 @@ Liaison utilise une architecture centralisée avec Frontier qui gère tous les c
 ---
 
 ## Fonctionnalités
+
+### Accès aux LLM locaux
+
+![Console Liaison présentant l’accès aux modèles, les protocoles client et amont, les noms de modèles et l’authentification par clé API. Configuration illustrative.](docs/assets/readme/local-llm-access-models-dark-v2.png)
 
 | Fonction | Capture |
 |:---:|:---:|
