@@ -1,16 +1,25 @@
-# <img src="docs/diagrams/liaison-logo.svg" height="40" align="absmiddle" alt="" /> Liaison
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/liaison-brand-rays-dark.svg" />
+  <img src="docs/assets/liaison-brand-rays-light.svg" width="270" height="88" alt="Liaison" />
+</picture>
 
-> **AI 기반 프라이빗 애플리케이션 제로 트러스트 액세스.**
+> **로컬 LLM과 애플리케이션을 위한 AI 네이티브 제로 트러스트 액세스.**
 
-[![Go](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/liaisonio/liaison)](https://goreportcard.com/report/github.com/liaisonio/liaison)
+셀프 호스팅, 안전한 API 공유, 브라우저 워크스페이스와 컨텍스트 인식 AI Agent를 지원합니다.
+
+[![CI](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
+[![Release](https://img.shields.io/github/v/release/liaisonio/liaison?display_name=tag&sort=semver)](https://github.com/liaisonio/liaison/releases)
+[![Downloads](https://img.shields.io/github/downloads/liaisonio/liaison/total)](https://github.com/liaisonio/liaison/releases)
 [![License](https://img.shields.io/badge/License-AGPLv3-blue.svg?logo=gnu)](LICENSE)
-[![Tech](https://img.shields.io/badge/Tech-Go%20%7C%20TypeScript%20%7C%20React-blue)](#)
-[![Version](https://img.shields.io/badge/Version-v1.13.0-green)](#)
+[![Go](https://img.shields.io/github/go-mod/go-version/liaisonio/liaison?logo=go&logoColor=white)](go.mod)
+[![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](web/package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](web/package.json)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)](web/vite.config.ts)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)](web/tailwind.config.cjs)
 
 [简体中文](./README_zh.md) | [English](./README.md) | [日本語](./README_ja.md) | 한국어 | [Español](./README_es.md) | [Français](./README_fr.md) | [Deutsch](./README_de.md)
 
-![Dashboard](docs/pages/home_en.png)
+![Liaison: 로컬 컴퓨팅 자원과 애플리케이션에 안전하게 접근합니다. 샘플 데이터를 사용한 데모입니다.](docs/assets/readme/liaison-product-demo-full-v2.gif)
 
 | Jellyfin(언제 어디서나 홈 무비 스트리밍) | OpenClaw(언제 어디서나 홈 AI 사용) |
 |:---:|:---:|
@@ -24,6 +33,8 @@
 
 프라이빗 서버, 데이터베이스, 데스크톱, 웹 앱에 연결하세요. SSH 및 데이터베이스 세션의 AI Agent와 작업하고 홈 Agent에서 접근 가능한 커넥터, 기기, 앱을 확인하세요. 셀프 호스팅을 지원하며 도구는 사용자 권한을 따릅니다.
 
+- 🤖 **로컬 LLM 액세스** — 인증된 API와 브라우저 Playground를 통해 네트워크 외부에서도 로컬 모델을 이용할 수 있습니다.
+- 🔑 **API 공유 제어** — 키별로 허용 모델과 Token 할당량을 설정하고, 액세스를 취소하며, 사용량과 요청 기록을 확인합니다.
 - ✨ **작업 흐름 속 AI** — 현재 연결의 Agent가 터미널 출력 확인, 명령 작성, 데이터베이스 조회를 돕습니다. 승인이 필요한 작업은 확인을 기다립니다.
 - 💬 **대화로 리소스 확인** — 홈 Agent에서 커넥터, 기기, 앱을 찾으세요. 리소스는 로그인한 사용자의 권한 범위로 제한됩니다.
 
@@ -139,6 +150,10 @@ Liaison 은 Frontier 가 모든 커넥터를 관리하는 중앙 집중식 아�
 ---
 
 ## 기능 소개
+
+### 로컬 LLM 액세스
+
+![모델 액세스, 클라이언트 및 업스트림 프로토콜, 모델 이름과 API 키 인증을 보여 주는 Liaison 콘솔. 예시 구성입니다.](docs/assets/readme/local-llm-access-models-dark-v2.png)
 
 | 기능 | 스크린샷 |
 |:---:|:---:|

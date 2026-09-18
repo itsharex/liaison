@@ -1,29 +1,38 @@
-# <img src="docs/diagrams/liaison-logo.svg" height="40" align="absmiddle" alt="Liaison Logo" /> Liaison
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/liaison-brand-rays-dark.svg" />
+  <img src="docs/assets/liaison-brand-rays-light.svg" width="270" height="88" alt="Liaison" />
+</picture>
 
-> **AI 驱动的私有应用零信任访问。**
+> **面向本地大模型与应用的 AI 原生零信任访问。**
 
-通过 SSH/SFTP、数据库、缓存、S3 对象存储、远程桌面、Web 和 LLM 协议访问私有服务。在 SSH 和数据库会话中使用 AI Agent，或通过首页 Agent 查询自己可见的连接器、设备与应用。支持私有化部署，通过主动出站连接器接入，工具调用受用户权限约束。
+支持私有化部署、安全 API 分享、浏览器工作台与上下文感知的 AI Agent。
 
-[![Go](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/liaisonio/liaison)](https://goreportcard.com/report/github.com/liaisonio/liaison)
+[![CI](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
 [![Release](https://img.shields.io/github/v/release/liaisonio/liaison?display_name=tag&sort=semver)](https://github.com/liaisonio/liaison/releases)
+[![Downloads](https://img.shields.io/github/downloads/liaisonio/liaison/total)](https://github.com/liaisonio/liaison/releases)
 [![License](https://img.shields.io/badge/License-AGPLv3-blue.svg?logo=gnu)](LICENSE)
+[![Go](https://img.shields.io/github/go-mod/go-version/liaisonio/liaison?logo=go&logoColor=white)](go.mod)
+[![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](web/package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](web/package.json)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)](web/vite.config.ts)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)](web/tailwind.config.cjs)
 
 [English](./README.md) | 简体中文 | [日本語](./README_ja.md) | [한국어](./README_ko.md) | [Español](./README_es.md) | [Français](./README_fr.md) | [Deutsch](./README_de.md)
 
 [官网](https://liaison.cloud) · [产品文档](https://liaison.cloud/zh/docs/get-started/introduction) · [产品能力](#产品能力) · [安装](#安装) · [访问协议](#支持的访问协议) · [Agent 模型](#agent-模型提供方) · [产品展示](#产品展示) · [社区](#社区)
 
-![Liaison 多应用流量总览](docs/assets/readme/overview-dark-v3.png)
+![Liaison：安全访问本地算力与应用。使用示例数据的演示。](docs/assets/readme/liaison-product-demo-full-v2.gif)
 
 ## 产品能力
 
+- 🤖 **本地大模型访问** — 通过需要认证的 API 和浏览器在线体验，将本地模型分享至网络之外。
+- 🔑 **可控的 API 分享** — 按模型限定密钥权限、设置 Token 配额、撤销访问，并查看用量与请求记录。
 - ✨ **工作流中的 AI** — 让与当前连接关联的 Agent 读取终端输出、辅助编写命令和查询数据库。工具遵循用户权限，需要审批的操作会等待确认。
 - 💬 **用对话查询资源** — 通过首页 Agent 查找和了解连接器、设备与应用，资源可见范围始终限定为当前登录用户。
 - 🔌 **主动出站连接器**：私有网络无需开放入站端口。
 - 🔐 **应用访问**：支持 TCP、HTTP、HTTPS、WebSocket 与 SSH，并可独立配置访问策略。
 - 🖥️ **浏览器工作台**：使用 WebSSH、WebSFTP、WebRDP、WebVNC，以及 MySQL、MariaDB、PostgreSQL、SQL Server、Oracle、ClickHouse、MongoDB、Elasticsearch、OpenSearch、Redis 和 Memcached。
 - 📁 **文件与对象浏览**：通过 WebSFTP 管理远程文件；WebS3 浏览 S3 兼容服务的 Bucket、目录前缀和对象元数据（当前为只读）。
-- 🤖 **私有模型访问**：支持 OpenAI-compatible、Anthropic Messages 和 Ollama 上游，提供调用密钥、模型映射、用量记录与每密钥 Token 配额。
 - 🔎 **应用发现**：扫描连接器所在设备，并在控制台中登记发现的服务。
 - 👥 **身份与权限**：管理组织、用户与资源，权限由 Casbin 统一执行。
 - 🛡️ **防火墙策略**：按来源 IP 与 CIDR 限制 TCP 和 HTTP 访问。
@@ -74,6 +83,10 @@ LLM 上游支持 **OpenAI-compatible**、**Anthropic Messages** 和 **Ollama**�
 支持以上 8 家预置厂商，以及自定义 OpenAI 兼容服务。
 
 ## 产品展示
+
+### 本地大模型访问
+
+![Liaison 控制台展示模型访问、客户端与上游协议、模型名称和 API 密钥认证。示例配置。](docs/assets/readme/local-llm-access-models-dark-v2.png)
 
 ### Web SSH
 

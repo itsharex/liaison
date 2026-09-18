@@ -1,16 +1,25 @@
-# <img src="docs/diagrams/liaison-logo.svg" height="40" align="absmiddle" alt="" /> Liaison
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/assets/liaison-brand-rays-dark.svg" />
+  <img src="docs/assets/liaison-brand-rays-light.svg" width="270" height="88" alt="Liaison" />
+</picture>
 
-> **KI-gestützter Zero-Trust-Zugriff auf private Anwendungen.**
+> **KI-nativer Zero-Trust-Zugriff auf lokale LLMs und Anwendungen.**
 
-[![Go](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
-[![Go Report Card](https://goreportcard.com/badge/github.com/liaisonio/liaison)](https://goreportcard.com/report/github.com/liaisonio/liaison)
+Selbst gehostet, mit sicherer API-Freigabe, Browser-Arbeitsbereichen und kontextbewussten KI-Agenten.
+
+[![CI](https://github.com/liaisonio/liaison/actions/workflows/go.yml/badge.svg)](https://github.com/liaisonio/liaison/actions/workflows/go.yml)
+[![Release](https://img.shields.io/github/v/release/liaisonio/liaison?display_name=tag&sort=semver)](https://github.com/liaisonio/liaison/releases)
+[![Downloads](https://img.shields.io/github/downloads/liaisonio/liaison/total)](https://github.com/liaisonio/liaison/releases)
 [![License](https://img.shields.io/badge/License-AGPLv3-blue.svg?logo=gnu)](LICENSE)
-[![Tech](https://img.shields.io/badge/Tech-Go%20%7C%20TypeScript%20%7C%20React-blue)](#)
-[![Version](https://img.shields.io/badge/Version-v1.13.0-green)](#)
+[![Go](https://img.shields.io/github/go-mod/go-version/liaisonio/liaison?logo=go&logoColor=white)](go.mod)
+[![React](https://img.shields.io/badge/React-20232A?logo=react&logoColor=61DAFB)](web/package.json)
+[![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?logo=typescript&logoColor=white)](web/package.json)
+[![Vite](https://img.shields.io/badge/Vite-646CFF?logo=vite&logoColor=white)](web/vite.config.ts)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-06B6D4?logo=tailwindcss&logoColor=white)](web/tailwind.config.cjs)
 
 [简体中文](./README_zh.md) | [English](./README.md) | [日本語](./README_ja.md) | [한국어](./README_ko.md) | [Español](./README_es.md) | [Français](./README_fr.md) | Deutsch
 
-![Dashboard](docs/pages/home_en.png)
+![Liaison: sicherer Zugriff auf lokale Rechenressourcen und Anwendungen. Demonstration mit Beispieldaten.](docs/assets/readme/liaison-product-demo-full-v2.gif)
 
 | Jellyfin (Heimfilme überall streamen) | OpenClaw (Heim-KI überall nutzen) |
 |:---:|:---:|
@@ -24,6 +33,8 @@
 
 Verbinden Sie private Server, Datenbanken, Desktops und Web-Apps. Arbeiten Sie mit einem KI-Agenten in SSH- und Datenbanksitzungen oder fragen Sie auf der Startseite nach verfügbaren Connectoren, Geräten und Anwendungen. Selbst gehostet, mit benutzergebundenen Werkzeugrechten.
 
+- 🤖 **Zugriff auf lokale LLMs** — Teilen Sie lokale Modelle außerhalb Ihres Netzwerks über authentifizierte APIs und einen Playground im Browser.
+- 🔑 **Kontrollierte API-Freigabe** — Beschränken Sie Schlüssel auf bestimmte Modelle, legen Sie Token-Kontingente fest, widerrufen Sie Zugriffe und prüfen Sie Nutzung und Anfrageprotokolle.
 - ✨ **KI im Arbeitsablauf** — Der Agent Ihrer Verbindung hilft beim Lesen der Terminalausgabe, Entwerfen von Befehlen und Abfragen von Datenbanken. Genehmigungspflichtige Vorgänge warten auf Ihre Bestätigung.
 - 💬 **Ressourcen im Dialog** — Finden Sie Connectoren, Geräte und Anwendungen mit dem Startseiten-Agenten innerhalb Ihrer Benutzerrechte.
 
@@ -139,6 +150,10 @@ Liaison nutzt eine zentralisierte Architektur, bei der Frontier alle Konnektoren
 ---
 
 ## Feature-Showcase
+
+### Zugriff auf lokale LLMs
+
+![Liaison-Konsole mit Modellzugriff, Client- und Upstream-Protokollen, Modellnamen und API-Schlüsselauthentifizierung. Beispielkonfiguration.](docs/assets/readme/local-llm-access-models-dark-v2.png)
 
 | Feature | Screenshot |
 |:---:|:---:|
